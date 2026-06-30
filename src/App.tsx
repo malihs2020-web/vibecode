@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ThemeControls } from '@/components/theme-controls';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useAutoBackup } from '@/hooks/useAutoBackup';
 import { defaultFoods, uid } from '@/lib/foods';
 import type { Diary, DiaryDay, Entry, Food, MacroGoals, MealType } from '@/lib/types';
 import { CalculatorTab } from '@/features/CalculatorTab';
@@ -26,6 +27,8 @@ export default function App() {
   const [diary, setDiary] = useLocalStorage<Diary>('diary', {});
   const [goalCal, setGoalCal] = useLocalStorage<number | null>('goalCal', null);
   const [macroGoals, setMacroGoals] = useLocalStorage<MacroGoals | null>('macroGoals', null);
+
+  useAutoBackup(foods, diary, goalCal);
 
   function handleGoalChange(tdee: number, macros: MacroGoals) {
     setGoalCal(tdee);

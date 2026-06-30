@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Droplets, Minus, Plus, UtensilsCrossed, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -68,6 +68,20 @@ export function DiaryTab({
   const over = goalCal != null && totalCal > goalCal;
   const pct = goalCal ? Math.min((totalCal / goalCal) * 100, 100) : 0;
 
+  const isToday = date === todayKey();
+  const hour = new Date().getHours();
+  const reminders: { icon: React.ReactNode; text: string }[] = [];
+  if (isToday) {
+    if (hour >= 10 && day.breakfast.length === 0)
+      reminders.push({ icon: <UtensilsCrossed className="h-4 w-4 shrink-0" />, text: 'Завтрак ещё не добавлен' });
+    if (hour >= 14 && day.lunch.length === 0)
+      reminders.push({ icon: <UtensilsCrossed className="h-4 w-4 shrink-0" />, text: 'Обед ещё не добавлен' });
+    if (hour >= 19 && day.dinner.length === 0)
+      reminders.push({ icon: <UtensilsCrossed className="h-4 w-4 shrink-0" />, text: 'Ужин ещё не добавлен' });
+    if (hour >= 15 && water < 6)
+      reminders.push({ icon: <Droplets className="h-4 w-4 shrink-0" />, text: `Выпито ${water} из 8 стаканов воды — не забывай пить!` });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-center gap-4">
@@ -101,6 +115,20 @@ export function DiaryTab({
           </div>
         </CardContent>
       </Card>
+
+      {reminders.length > 0 && (
+        <div className="space-y-2">
+          {reminders.map((r, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300"
+            >
+              {r.icon}
+              {r.text}
+            </div>
+          ))}
+        </div>
+      )}
 
       <Card>
         <CardContent className="space-y-3 p-5">

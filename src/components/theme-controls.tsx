@@ -10,7 +10,7 @@ const ACCENTS: { id: Accent; label: string; swatch: string }[] = [
 ];
 
 export function ThemeControls() {
-  const { theme, accent, toggleTheme, setAccent } = useTheme();
+  const { theme, accent, toggleTheme, setAccent, inTelegram } = useTheme();
 
   return (
     <div className="flex items-center gap-1.5">
@@ -31,15 +31,17 @@ export function ThemeControls() {
           />
         ))}
       </div>
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={toggleTheme}
-        aria-label="Переключить тему"
-        title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-      >
-        {theme === 'dark' ? <Sun /> : <Moon />}
-      </Button>
+      {!inTelegram && (
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={toggleTheme}
+          aria-label="Переключить тему"
+          title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+        >
+          {theme === 'dark' ? <Sun /> : <Moon />}
+        </Button>
+      )}
     </div>
   );
 }

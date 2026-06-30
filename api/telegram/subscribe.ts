@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { redis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis';
+import { getRedis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis';
 import type { ReminderKey, ReminderSetting, Subscriber } from '../_lib/types';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -43,13 +43,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const hasAnyEnabled = Object.values(reminders).some((r) => r?.enabled);
 
   if (!hasAnyEnabled) {
-    await redis.srem(SUBSCRIBERS_SET, chatId);
-    await redis.del(subscriberKey(chatId));
+    await getRedis().srem(SUBSCRIBERS_SET, chatId);
+    await getRedis().del(subscriberKey(chatId));
     res.status(200).json({ subscribed: false });
     return;
   }
 
-  const existing = await redis.get<Subscriber>(subscriberKey(chatId));
+  const existing = await getRedis().get<Subscriber>(subscriberKey(chatId));
 
   const subscriber: Subscriber = {
     chatId,
@@ -58,8 +58,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     lastSent: existing?.lastSent ?? {},
   };
 
-  await redis.set(subscriberKey(chatId), subscriber);
-  await redis.sadd(SUBSCRIBERS_SET, chatId);
+  await getRedis().set(subscriberKey(chatId), subscriber);
+  await getRedis().sadd(SUBSCRIBERS_SET, chatId);
 
   res.status(200).json({ subscribed: true });
 }

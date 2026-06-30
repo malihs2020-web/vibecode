@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Droplets, Minus, Plus, Scale, Settings2, UtensilsCrossed, X } from 'lucide-react';
+import { Bell, ChevronLeft, ChevronRight, Droplets, Minus, Plus, Scale, Settings2, UtensilsCrossed, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { formatLongDate, shiftDay, todayKey } from '@/lib/date';
-import type { AppSettings, Diary, DiaryDay, Entry, Food, MacroGoals, MealType, WeightEntry } from '@/lib/types';
+import { isTelegram } from '@/hooks/useTelegram';
+import { syncTelegramReminders } from '@/lib/telegramApi';
+import type { AppSettings, Diary, DiaryDay, Entry, Food, MacroGoals, MealType, ReminderKey, ReminderSetting, WeightEntry } from '@/lib/types';
 import { AddEntryDialog } from './AddEntryDialog';
 
 const ALL_MEALS: { id: MealType; title: string }[] = [
@@ -31,6 +33,7 @@ const MEAL_LABELS: Record<MealType, string> = {
 
 const GLASS_OPTIONS = [100, 150, 200, 250, 300, 330, 500];
 const WATER_GOAL_OPTIONS = [4, 5, 6, 7, 8, 9, 10, 12];
+const DEFAULT_REMINDER_TIME = '09:00';
 
 const EMPTY_DAY: DiaryDay = {
   breakfast: [], breakfast2: [], lunch: [], afternoon: [],
@@ -114,6 +117,14 @@ export function DiaryTab({
   function saveWeight() {
     const w = parseFloat(weightInput);
     if (w > 0) { onAddWeight(date, w); setWeightInput(''); }
+  }
+
+  function updateReminder(key: ReminderKey, setting: ReminderSetting) {
+    onSettingsChange((prev) => {
+      const next = { ...prev, telegramReminders: { ...prev.telegramReminders, [key]: setting } };
+      syncTelegramReminders(next.telegramReminders);
+      return next;
+    });
   }
 
   return (
@@ -315,6 +326,39 @@ export function DiaryTab({
                   ))}
                 </div>
               </div>
+
+              {/* Уведомления в Telegram */}
+              {isTelegram() && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-sm font-medium">
+                    <Bell className="h-4 w-4" /> Уведомления в Telegram
+                  </div>
+                  <div className="space-y-2">
+                    {[...activeMeals.map((m) => ({ key: m.id as ReminderKey, label: m.title })),
+                      { key: 'water' as ReminderKey, label: '💧 Вода' }].map(({ key, label }) => {
+                      const setting = settings.telegramReminders?.[key] ?? { enabled: false, time: DEFAULT_REMINDER_TIME };
+                      return (
+                        <div key={key} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={setting.enabled}
+                            onChange={(e) => updateReminder(key, { ...setting, enabled: e.target.checked })}
+                            className="rounded"
+                          />
+                          <span className="flex-1">{label}</span>
+                          <input
+                            type="time"
+                            value={setting.time}
+                            disabled={!setting.enabled}
+                            onChange={(e) => updateReminder(key, { ...setting, time: e.target.value })}
+                            className="h-8 rounded-md border bg-background px-2 text-xs disabled:opacity-50"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

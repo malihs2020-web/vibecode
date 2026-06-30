@@ -9,3 +9,7 @@ export function initTelegram(): void {
   tg.ready();
   tg.expand();
 }
+
+export function getChatId(): number | null {
+  return tg?.initDataUnsafe?.user?.id ?? null;
+}

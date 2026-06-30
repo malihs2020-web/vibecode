@@ -56,10 +56,18 @@ export interface DiaryDay {
 
 export type Diary = Record<string, DiaryDay>;
 
+export type ReminderKey = MealType | 'water';
+
+export interface ReminderSetting {
+  enabled: boolean;
+  time: string; // 'HH:MM', локальное время пользователя
+}
+
 export interface AppSettings {
   activeMeals: MealType[];
   glassML: number;
   waterGoal: number;
+  telegramReminders?: Partial<Record<ReminderKey, ReminderSetting>>;
 }
 
 export interface WeightEntry {

@@ -1,4 +1,4 @@
-import type { ReminderKey, ReminderSetting } from '../../src/lib/types';
+import type { ReminderKey, ReminderSetting } from '../../src/lib/types.js';
 
 export interface Subscriber {
   chatId: number;

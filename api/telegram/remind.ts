@@ -1,9 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { redis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis';
-import type { ReminderKey, Subscriber } from '../_lib/types';
+import { getRedis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis.js';
+import type { ReminderKey, Subscriber } from '../_lib/types.js';
 
-// Допустимое отклонение от настроенного времени, в минутах.
-// Должно быть не меньше половины интервала запуска cron на cron-job.org.
 const WINDOW_MINUTES = 7;
 
 const REMINDER_TEXT: Record<ReminderKey, string> = {
@@ -74,6 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const host = req.headers['x-forwarded-host'] ?? req.headers.host;
   const appUrl = `https://${host}`;
 
+  const redis = getRedis();
   const chatIds = (await redis.smembers(SUBSCRIBERS_SET)) as (string | number)[];
   let sent = 0;
 

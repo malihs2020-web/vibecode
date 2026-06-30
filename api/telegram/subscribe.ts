@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { redis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis';
-import type { ReminderKey, ReminderSetting, Subscriber } from '../_lib/types';
+import { getRedis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis.js';
+import type { ReminderKey, ReminderSetting, Subscriber } from '../_lib/types.js';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -41,6 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const hasAnyEnabled = Object.values(reminders).some((r) => r?.enabled);
+  const redis = getRedis();
 
   if (!hasAnyEnabled) {
     await redis.srem(SUBSCRIBERS_SET, chatId);

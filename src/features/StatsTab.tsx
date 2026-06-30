@@ -14,7 +14,7 @@ import { lastNDays, todayKey } from '@/lib/date';
 import { loadAutoBackup } from '@/hooks/useAutoBackup';
 import type { Diary, Food } from '@/lib/types';
 
-const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
+const MEALS = ['breakfast', 'breakfast2', 'lunch', 'afternoon', 'dinner', 'dinner2', 'snack'] as const;
 
 interface Props {
   diary: Diary;

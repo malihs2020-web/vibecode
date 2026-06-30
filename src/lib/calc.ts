@@ -61,9 +61,24 @@ export function bmiCategory(bmi: number): string {
   return 'Ожирение';
 }
 
+const MIN_CARBS = 50; // минимум 50г углеводов
+
 export function calcAutoMacros(weight: number, tdee: number, direction: GoalDirection): MacroGoals {
-  const protein = Math.round(weight * PROTEIN_PER_KG[direction]);
-  const fat = Math.round(weight * FAT_PER_KG);
+  // Белок по г/кг, но не более 40% от калорий
+  const protein = Math.min(
+    Math.round(weight * PROTEIN_PER_KG[direction]),
+    Math.round((tdee * 0.4) / 4),
+  );
+
+  // Жир: из остатка после белка и минимальных углеводов
+  const remainingAfterProtein = tdee - protein * 4;
+  const maxFatCal = Math.max(0, remainingAfterProtein - MIN_CARBS * 4);
+  const fat = Math.min(
+    Math.round(weight * FAT_PER_KG),
+    Math.round(maxFatCal / 9),
+  );
+
+  // Углеводы — остаток
   const carbs = Math.max(0, Math.round((tdee - protein * 4 - fat * 9) / 4));
   return { protein, fat, carbs };
 }

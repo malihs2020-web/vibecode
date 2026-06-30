@@ -1,11 +1,18 @@
+function localDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function todayKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateStr(new Date());
 }
 
 export function shiftDay(key: string, delta: number): string {
   const d = new Date(key + 'T00:00:00');
   d.setDate(d.getDate() + delta);
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 }
 
 export function lastNDays(n: number, anchor = todayKey()): string[] {

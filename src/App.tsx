@@ -1,9 +1,18 @@
+import { useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ThemeControls } from '@/components/theme-controls';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useAutoBackup } from '@/hooks/useAutoBackup';
 import { defaultFoods, uid } from '@/lib/foods';
-import type { Diary, DiaryDay, Entry, Food, MacroGoals, MealType } from '@/lib/types';
+import { calcAdaptiveTdee, shouldRunAdaptive } from '@/lib/adaptive';
+import { todayKey } from '@/lib/date';
+import type { AdaptiveState, AppSettings, Diary, DiaryDay, Entry, Food, MacroGoals, MealType, WeightEntry } from '@/lib/types';
+
+const DEFAULT_SETTINGS: AppSettings = {
+  activeMeals: ['breakfast', 'lunch', 'dinner', 'snack'] as AppSettings['activeMeals'],
+  glassML: 250,
+  waterGoal: 8,
+};
 import { CalculatorTab } from '@/features/CalculatorTab';
 import { DiaryTab } from '@/features/DiaryTab';
 import { StatsTab } from '@/features/StatsTab';
@@ -11,15 +20,12 @@ import { FoodsTab } from '@/features/FoodsTab';
 import type { FoodDraft } from '@/features/FoodDialog';
 
 const EMPTY_DAY: DiaryDay = {
-  breakfast: [],
-  lunch: [],
-  dinner: [],
-  snack: [],
-  water: 0,
+  breakfast: [], breakfast2: [], lunch: [], afternoon: [],
+  dinner: [], dinner2: [], snack: [], water: 0,
 };
 
 function ensureDay(day?: DiaryDay): DiaryDay {
-  return day ? { ...day, water: day.water ?? 0 } : { ...EMPTY_DAY };
+  return day ? { ...EMPTY_DAY, ...day, water: day.water ?? 0 } : { ...EMPTY_DAY };
 }
 
 export default function App() {
@@ -27,12 +33,50 @@ export default function App() {
   const [diary, setDiary] = useLocalStorage<Diary>('diary', {});
   const [goalCal, setGoalCal] = useLocalStorage<number | null>('goalCal', null);
   const [macroGoals, setMacroGoals] = useLocalStorage<MacroGoals | null>('macroGoals', null);
+  const [weightLog, setWeightLog] = useLocalStorage<WeightEntry[]>('weightLog', []);
+  const [adaptiveState, setAdaptiveState] = useLocalStorage<AdaptiveState | null>('adaptiveState', null);
+  const [settings, setSettings] = useLocalStorage<AppSettings>('settings', DEFAULT_SETTINGS);
 
   useAutoBackup(foods, diary, goalCal);
+
+  // Еженедельная адаптивная корректировка TDEE
+  useEffect(() => {
+    if (!goalCal) return;
+    if (!shouldRunAdaptive(adaptiveState?.lastDate ?? null)) return;
+    if (weightLog.length < 2) return;
+
+    const baseTdee = adaptiveState?.baseTdee ?? goalCal;
+    const currentTdee = adaptiveState?.tdee ?? goalCal;
+
+    const result = calcAdaptiveTdee(weightLog, diary, currentTdee, baseTdee);
+    if (!result) return;
+
+    setAdaptiveState({
+      tdee: result.newTdee,
+      baseTdee,
+      lastDate: todayKey(),
+      lastCorrection: result.correctionKcal,
+      lastTrendDelta: result.trendDelta,
+      lastExpectedDelta: result.expectedDelta,
+      lastAvgCal: result.avgCalories,
+    });
+    setGoalCal(result.newTdee);
+  }, [weightLog, diary]);
 
   function handleGoalChange(tdee: number, macros: MacroGoals) {
     setGoalCal(tdee);
     setMacroGoals(macros);
+    // Сброс базы при ручном пересчёте
+    setAdaptiveState((prev) =>
+      prev ? { ...prev, baseTdee: tdee, tdee } : null
+    );
+  }
+
+  function addWeightEntry(date: string, weight: number) {
+    setWeightLog((prev) => {
+      const filtered = prev.filter((e) => e.date !== date);
+      return [...filtered, { date, weight }].sort((a, b) => a.date.localeCompare(b.date));
+    });
   }
 
   function addEntry(date: string, meal: MealType, entry: Entry) {
@@ -97,7 +141,10 @@ export default function App() {
         </TabsList>
 
         <TabsContent value="calculator">
-          <CalculatorTab onGoalChange={handleGoalChange} />
+          <CalculatorTab
+            onGoalChange={handleGoalChange}
+            adaptiveState={adaptiveState}
+          />
         </TabsContent>
         <TabsContent value="diary">
           <DiaryTab
@@ -105,9 +152,13 @@ export default function App() {
             goalCal={goalCal}
             macroGoals={macroGoals}
             foods={foods}
+            weightLog={weightLog}
+            settings={settings}
             onAddEntry={addEntry}
             onRemoveEntry={removeEntry}
             onChangeWater={changeWater}
+            onAddWeight={addWeightEntry}
+            onSettingsChange={setSettings}
           />
         </TabsContent>
         <TabsContent value="stats">

@@ -1,4 +1,4 @@
-const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const API_URL = '/api/groq/chat/completions';
 const MODEL = 'llama-3.3-70b-versatile';
 
 export function groqKey(): string {

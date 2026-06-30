@@ -21,12 +21,13 @@ import {
   calculate,
   type CalcResult,
 } from '@/lib/calc';
-import type { Gender, GoalDirection, GoalRate, MacroGoals } from '@/lib/types';
+import type { AdaptiveState, Gender, GoalDirection, GoalRate, MacroGoals } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { cn } from '@/lib/utils';
 
 interface Props {
   onGoalChange: (tdee: number, macros: MacroGoals) => void;
+  adaptiveState: AdaptiveState | null;
 }
 
 interface Profile {
@@ -55,7 +56,7 @@ function bmiBadgeVariant(label: string) {
   return 'destructive' as const;
 }
 
-export function CalculatorTab({ onGoalChange }: Props) {
+export function CalculatorTab({ onGoalChange, adaptiveState }: Props) {
   const [profile, setProfile] = useLocalStorage<Profile>('userProfile', DEFAULT_PROFILE);
   const [result, setResult] = useState<CalcResult | null>(null);
 
@@ -326,6 +327,35 @@ export function CalculatorTab({ onGoalChange }: Props) {
               )}
             </CardContent>
           </Card>
+          {/* Адаптивная корректировка */}
+          {adaptiveState && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="space-y-2 p-4 text-sm">
+                <div className="font-semibold text-primary">📊 Адаптивная норма</div>
+                <div className="text-muted-foreground">
+                  Норма скорректирована с{' '}
+                  <strong className="text-foreground">{adaptiveState.baseTdee}</strong> до{' '}
+                  <strong className="text-foreground">{adaptiveState.tdee}</strong> ккал/день
+                  {adaptiveState.lastCorrection !== 0 && (
+                    <span className={cn(
+                      'ml-1 font-semibold',
+                      adaptiveState.lastCorrection > 0 ? 'text-success' : 'text-destructive'
+                    )}>
+                      ({adaptiveState.lastCorrection > 0 ? '+' : ''}{adaptiveState.lastCorrection} ккал)
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Тренд веса: {adaptiveState.lastTrendDelta >= 0 ? '+' : ''}
+                  {adaptiveState.lastTrendDelta.toFixed(2)} кг при ожидаемых{' '}
+                  {adaptiveState.lastExpectedDelta >= 0 ? '+' : ''}
+                  {adaptiveState.lastExpectedDelta.toFixed(2)} кг ·{' '}
+                  среднее {adaptiveState.lastAvgCal} ккал/день ·{' '}
+                  дата корректировки {adaptiveState.lastDate}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { redis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis';
+import { getRedis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis';
 import type { ReminderKey, Subscriber } from '../_lib/types';
 
 // Допустимое отклонение от настроенного времени, в минутах.
@@ -74,12 +74,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const host = req.headers['x-forwarded-host'] ?? req.headers.host;
   const appUrl = `https://${host}`;
 
-  const chatIds = (await redis.smembers(SUBSCRIBERS_SET)) as (string | number)[];
+  const chatIds = (await getRedis().smembers(SUBSCRIBERS_SET)) as (string | number)[];
   let sent = 0;
 
   for (const rawId of chatIds) {
     const chatId = Number(rawId);
-    const subscriber = await redis.get<Subscriber>(subscriberKey(chatId));
+    const subscriber = await getRedis().get<Subscriber>(subscriberKey(chatId));
     if (!subscriber) continue;
 
     const local = localTimeParts(subscriber.timezone);
@@ -101,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (changed) {
-      await redis.set(subscriberKey(chatId), subscriber);
+      await getRedis().set(subscriberKey(chatId), subscriber);
     }
   }
 

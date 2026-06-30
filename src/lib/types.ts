@@ -1,6 +1,20 @@
 export type Gender = 'male' | 'female';
 
+export type GoalDirection = 'lose' | 'maintain' | 'gain';
+export type GoalRate = 'slow' | 'moderate' | 'fast';
+
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export interface MacroGoals {
+  protein: number;
+  fat: number;
+  carbs: number;
+}
+
+export interface FoodPortion {
+  label: string;
+  grams: number;
+}
 
 export interface Food {
   id: string;
@@ -9,6 +23,7 @@ export interface Food {
   protein: number;
   fat: number;
   carbs: number;
+  portions?: FoodPortion[];
 }
 
 export interface Entry {

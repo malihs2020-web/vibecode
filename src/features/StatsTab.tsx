@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Download, Upload } from 'lucide-react';
+import { Download, RotateCcw, Upload } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { lastNDays, todayKey } from '@/lib/date';
+import { loadAutoBackup } from '@/hooks/useAutoBackup';
 import type { Diary, Food } from '@/lib/types';
 
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
@@ -31,6 +32,7 @@ function dayCalories(diary: Diary, key: string): number {
 export function StatsTab({ diary, goalCal, foods, onImport }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const today = todayKey();
+  const autoBackup = loadAutoBackup();
   const days = lastNDays(7);
   const cals = days.map((d) => dayCalories(diary, d));
   const scale = Math.max(goalCal ?? 0, ...cals, 1) * 1.15;
@@ -137,24 +139,46 @@ export function StatsTab({ diary, goalCal, foods, onImport }: Props) {
             другом устройстве.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          <Button variant="secondary" onClick={exportData}>
-            <Download /> Экспорт в JSON
-          </Button>
-          <Button variant="secondary" onClick={() => fileRef.current?.click()}>
-            <Upload /> Импорт из JSON
-          </Button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) importData(file);
-              e.target.value = '';
-            }}
-          />
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <Button variant="secondary" onClick={exportData}>
+              <Download /> Экспорт в JSON
+            </Button>
+            <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+              <Upload /> Импорт из JSON
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) importData(file);
+                e.target.value = '';
+              }}
+            />
+          </div>
+
+          {autoBackup && (
+            <div className="flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">
+                Авто-бэкап от <strong className="text-foreground">{autoBackup.date}</strong>
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (confirm(`Восстановить данные из авто-бэкапа от ${autoBackup.date}? Текущие данные будут заменены.`)) {
+                    onImport(autoBackup);
+                  }
+                }}
+              >
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Восстановить
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

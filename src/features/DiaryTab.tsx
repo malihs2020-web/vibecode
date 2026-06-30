@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Droplets, Minus, Plus, UtensilsCrossed, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { formatLongDate, shiftDay, todayKey } from '@/lib/date';
-import type { Diary, DiaryDay, Entry, Food, MealType } from '@/lib/types';
+import type { Diary, DiaryDay, Entry, Food, MacroGoals, MealType } from '@/lib/types';
 import { AddEntryDialog } from './AddEntryDialog';
 
 const WATER_GOAL = 8;
@@ -30,6 +30,7 @@ const EMPTY_DAY: DiaryDay = {
 interface Props {
   diary: Diary;
   goalCal: number | null;
+  macroGoals: MacroGoals | null;
   foods: Food[];
   onAddEntry: (date: string, meal: MealType, entry: Entry) => void;
   onRemoveEntry: (date: string, meal: MealType, idx: number) => void;
@@ -39,6 +40,7 @@ interface Props {
 export function DiaryTab({
   diary,
   goalCal,
+  macroGoals,
   foods,
   onAddEntry,
   onRemoveEntry,
@@ -66,6 +68,20 @@ export function DiaryTab({
   const over = goalCal != null && totalCal > goalCal;
   const pct = goalCal ? Math.min((totalCal / goalCal) * 100, 100) : 0;
 
+  const isToday = date === todayKey();
+  const hour = new Date().getHours();
+  const reminders: { icon: React.ReactNode; text: string }[] = [];
+  if (isToday) {
+    if (hour >= 10 && day.breakfast.length === 0)
+      reminders.push({ icon: <UtensilsCrossed className="h-4 w-4 shrink-0" />, text: 'Завтрак ещё не добавлен' });
+    if (hour >= 14 && day.lunch.length === 0)
+      reminders.push({ icon: <UtensilsCrossed className="h-4 w-4 shrink-0" />, text: 'Обед ещё не добавлен' });
+    if (hour >= 19 && day.dinner.length === 0)
+      reminders.push({ icon: <UtensilsCrossed className="h-4 w-4 shrink-0" />, text: 'Ужин ещё не добавлен' });
+    if (hour >= 15 && water < 6)
+      reminders.push({ icon: <Droplets className="h-4 w-4 shrink-0" />, text: `Выпито ${water} из 8 стаканов воды — не забывай пить!` });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-center gap-4">
@@ -92,13 +108,27 @@ export function DiaryTab({
             value={pct}
             indicatorClassName={over ? 'bg-destructive' : 'bg-success'}
           />
-          <div className="flex gap-5 text-sm text-muted-foreground">
-            <span>Б: {totalP.toFixed(1)}г</span>
-            <span>Ж: {totalF.toFixed(1)}г</span>
-            <span>У: {totalC.toFixed(1)}г</span>
+          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+            <MacroStat label="Б" eaten={totalP} goal={macroGoals?.protein ?? null} />
+            <MacroStat label="Ж" eaten={totalF} goal={macroGoals?.fat ?? null} />
+            <MacroStat label="У" eaten={totalC} goal={macroGoals?.carbs ?? null} />
           </div>
         </CardContent>
       </Card>
+
+      {reminders.length > 0 && (
+        <div className="space-y-2">
+          {reminders.map((r, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300"
+            >
+              {r.icon}
+              {r.text}
+            </div>
+          ))}
+        </div>
+      )}
 
       <Card>
         <CardContent className="space-y-3 p-5">
@@ -188,5 +218,20 @@ export function DiaryTab({
         }}
       />
     </div>
+  );
+}
+
+function MacroStat({ label, eaten, goal }: { label: string; eaten: number; goal: number | null }) {
+  return (
+    <span>
+      {label}:{' '}
+      <strong className={cn(
+        goal != null && eaten > goal * 1.1 ? 'text-destructive' : 'text-foreground'
+      )}>
+        {eaten.toFixed(0)}
+      </strong>
+      {goal != null && <span className="text-muted-foreground"> / {goal}г</span>}
+      {goal == null && <span className="text-muted-foreground">г</span>}
+    </span>
   );
 }

@@ -46,6 +46,12 @@ export interface DiaryDay {
 
 export type Diary = Record<string, DiaryDay>;
 
+export interface AppSettings {
+  activeMeals: MealType[];
+  glassML: number;
+  waterGoal: number;
+}
+
 export interface WeightEntry {
   date: string;
   weight: number;

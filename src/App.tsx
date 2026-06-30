@@ -6,7 +6,13 @@ import { useAutoBackup } from '@/hooks/useAutoBackup';
 import { defaultFoods, uid } from '@/lib/foods';
 import { calcAdaptiveTdee, shouldRunAdaptive } from '@/lib/adaptive';
 import { todayKey } from '@/lib/date';
-import type { AdaptiveState, Diary, DiaryDay, Entry, Food, MacroGoals, MealType, WeightEntry } from '@/lib/types';
+import type { AdaptiveState, AppSettings, Diary, DiaryDay, Entry, Food, MacroGoals, MealType, WeightEntry } from '@/lib/types';
+
+const DEFAULT_SETTINGS: AppSettings = {
+  activeMeals: ['breakfast', 'lunch', 'dinner', 'snack'],
+  glassML: 250,
+  waterGoal: 8,
+};
 import { CalculatorTab } from '@/features/CalculatorTab';
 import { DiaryTab } from '@/features/DiaryTab';
 import { StatsTab } from '@/features/StatsTab';
@@ -32,6 +38,7 @@ export default function App() {
   const [macroGoals, setMacroGoals] = useLocalStorage<MacroGoals | null>('macroGoals', null);
   const [weightLog, setWeightLog] = useLocalStorage<WeightEntry[]>('weightLog', []);
   const [adaptiveState, setAdaptiveState] = useLocalStorage<AdaptiveState | null>('adaptiveState', null);
+  const [settings, setSettings] = useLocalStorage<AppSettings>('settings', DEFAULT_SETTINGS);
 
   useAutoBackup(foods, diary, goalCal);
 
@@ -149,10 +156,12 @@ export default function App() {
             macroGoals={macroGoals}
             foods={foods}
             weightLog={weightLog}
+            settings={settings}
             onAddEntry={addEntry}
             onRemoveEntry={removeEntry}
             onChangeWater={changeWater}
             onAddWeight={addWeightEntry}
+            onSettingsChange={setSettings}
           />
         </TabsContent>
         <TabsContent value="stats">

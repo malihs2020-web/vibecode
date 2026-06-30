@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { formatLongDate, shiftDay, todayKey } from '@/lib/date';
-import type { Diary, DiaryDay, Entry, Food, MealType } from '@/lib/types';
+import type { Diary, DiaryDay, Entry, Food, MacroGoals, MealType } from '@/lib/types';
 import { AddEntryDialog } from './AddEntryDialog';
 
 const WATER_GOAL = 8;
@@ -30,6 +30,7 @@ const EMPTY_DAY: DiaryDay = {
 interface Props {
   diary: Diary;
   goalCal: number | null;
+  macroGoals: MacroGoals | null;
   foods: Food[];
   onAddEntry: (date: string, meal: MealType, entry: Entry) => void;
   onRemoveEntry: (date: string, meal: MealType, idx: number) => void;
@@ -39,6 +40,7 @@ interface Props {
 export function DiaryTab({
   diary,
   goalCal,
+  macroGoals,
   foods,
   onAddEntry,
   onRemoveEntry,
@@ -92,10 +94,10 @@ export function DiaryTab({
             value={pct}
             indicatorClassName={over ? 'bg-destructive' : 'bg-success'}
           />
-          <div className="flex gap-5 text-sm text-muted-foreground">
-            <span>Б: {totalP.toFixed(1)}г</span>
-            <span>Ж: {totalF.toFixed(1)}г</span>
-            <span>У: {totalC.toFixed(1)}г</span>
+          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+            <MacroStat label="Б" eaten={totalP} goal={macroGoals?.protein ?? null} />
+            <MacroStat label="Ж" eaten={totalF} goal={macroGoals?.fat ?? null} />
+            <MacroStat label="У" eaten={totalC} goal={macroGoals?.carbs ?? null} />
           </div>
         </CardContent>
       </Card>
@@ -188,5 +190,20 @@ export function DiaryTab({
         }}
       />
     </div>
+  );
+}
+
+function MacroStat({ label, eaten, goal }: { label: string; eaten: number; goal: number | null }) {
+  return (
+    <span>
+      {label}:{' '}
+      <strong className={cn(
+        goal != null && eaten > goal * 1.1 ? 'text-destructive' : 'text-foreground'
+      )}>
+        {eaten.toFixed(0)}
+      </strong>
+      {goal != null && <span className="text-muted-foreground"> / {goal}г</span>}
+      {goal == null && <span className="text-muted-foreground">г</span>}
+    </span>
   );
 }

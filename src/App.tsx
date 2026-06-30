@@ -2,7 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ThemeControls } from '@/components/theme-controls';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { defaultFoods, uid } from '@/lib/foods';
-import type { Diary, DiaryDay, Entry, Food, MealType } from '@/lib/types';
+import type { Diary, DiaryDay, Entry, Food, MacroGoals, MealType } from '@/lib/types';
 import { CalculatorTab } from '@/features/CalculatorTab';
 import { DiaryTab } from '@/features/DiaryTab';
 import { StatsTab } from '@/features/StatsTab';
@@ -25,6 +25,12 @@ export default function App() {
   const [foods, setFoods] = useLocalStorage<Food[]>('foods', defaultFoods);
   const [diary, setDiary] = useLocalStorage<Diary>('diary', {});
   const [goalCal, setGoalCal] = useLocalStorage<number | null>('goalCal', null);
+  const [macroGoals, setMacroGoals] = useLocalStorage<MacroGoals | null>('macroGoals', null);
+
+  function handleGoalChange(tdee: number, macros: MacroGoals) {
+    setGoalCal(tdee);
+    setMacroGoals(macros);
+  }
 
   function addEntry(date: string, meal: MealType, entry: Entry) {
     setDiary((prev) => {
@@ -88,12 +94,13 @@ export default function App() {
         </TabsList>
 
         <TabsContent value="calculator">
-          <CalculatorTab onGoalChange={setGoalCal} />
+          <CalculatorTab onGoalChange={handleGoalChange} />
         </TabsContent>
         <TabsContent value="diary">
           <DiaryTab
             diary={diary}
             goalCal={goalCal}
+            macroGoals={macroGoals}
             foods={foods}
             onAddEntry={addEntry}
             onRemoveEntry={removeEntry}

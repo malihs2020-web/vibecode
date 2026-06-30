@@ -9,7 +9,7 @@ import { todayKey } from '@/lib/date';
 import type { AdaptiveState, AppSettings, Diary, DiaryDay, Entry, Food, MacroGoals, MealType, WeightEntry } from '@/lib/types';
 
 const DEFAULT_SETTINGS: AppSettings = {
-  activeMeals: ['breakfast', 'lunch', 'dinner', 'snack'],
+  activeMeals: ['breakfast', 'lunch', 'dinner', 'snack'] as AppSettings['activeMeals'],
   glassML: 250,
   waterGoal: 8,
 };
@@ -20,15 +20,12 @@ import { FoodsTab } from '@/features/FoodsTab';
 import type { FoodDraft } from '@/features/FoodDialog';
 
 const EMPTY_DAY: DiaryDay = {
-  breakfast: [],
-  lunch: [],
-  dinner: [],
-  snack: [],
-  water: 0,
+  breakfast: [], breakfast2: [], lunch: [], afternoon: [],
+  dinner: [], dinner2: [], snack: [], water: 0,
 };
 
 function ensureDay(day?: DiaryDay): DiaryDay {
-  return day ? { ...day, water: day.water ?? 0 } : { ...EMPTY_DAY };
+  return day ? { ...EMPTY_DAY, ...day, water: day.water ?? 0 } : { ...EMPTY_DAY };
 }
 
 export default function App() {

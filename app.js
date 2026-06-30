@@ -43,9 +43,12 @@ function uid() { return Math.random().toString(36).slice(2, 10); }
 function todayKey() { return new Date().toISOString().slice(0, 10); }
 
 function diaryDay(date) {
-  if (!diary[date]) diary[date] = { breakfast: [], lunch: [], dinner: [], snack: [] };
+  if (!diary[date]) diary[date] = { breakfast: [], lunch: [], dinner: [], snack: [], water: 0 };
   return diary[date];
 }
+
+const WATER_GOAL = 8;       // стаканов в день
+const GLASS_ML = 250;       // мл в стакане
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab').forEach(tab => {
@@ -54,6 +57,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+    if (tab.dataset.tab === 'stats') renderStats();
   });
 });
 
@@ -145,7 +149,36 @@ function renderDiary() {
   const fill = document.getElementById('progress-fill');
   fill.style.width = pct + '%';
   fill.classList.toggle('over', goalCal && totalCal > goalCal);
+
+  renderWater();
 }
+
+// ── Water tracker ────────────────────────────────────────────────────────────
+function renderWater() {
+  const count = diaryDay(diaryDate).water || 0;
+  document.getElementById('water-count').textContent = count;
+  document.getElementById('water-goal').textContent = WATER_GOAL;
+  document.getElementById('water-ml').textContent = count * GLASS_ML;
+
+  const wrap = document.getElementById('water-glasses');
+  const total = Math.max(WATER_GOAL, count);
+  wrap.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const g = document.createElement('div');
+    g.className = 'glass' + (i < count ? ' filled' : '');
+    wrap.appendChild(g);
+  }
+}
+
+function changeWater(delta) {
+  const day = diaryDay(diaryDate);
+  day.water = Math.max(0, (day.water || 0) + delta);
+  save('diary', diary);
+  renderWater();
+}
+
+document.getElementById('water-plus').addEventListener('click', () => changeWater(1));
+document.getElementById('water-minus').addEventListener('click', () => changeWater(-1));
 
 document.getElementById('prev-day').addEventListener('click', () => {
   const d = new Date(diaryDate + 'T00:00:00');
@@ -319,6 +352,97 @@ document.getElementById('food-save').addEventListener('click', () => {
 });
 
 foodModal.addEventListener('click', e => { if (e.target === foodModal) foodModal.style.display = 'none'; });
+
+// ── Stats (weekly chart) ─────────────────────────────────────────────────────
+function lastNDays(n) {
+  const days = [];
+  const base = new Date(todayKey() + 'T00:00:00');
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(base);
+    d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  return days;
+}
+
+function dayCalories(key) {
+  const day = diary[key];
+  if (!day) return 0;
+  return ['breakfast', 'lunch', 'dinner', 'snack']
+    .reduce((sum, meal) => sum + (day[meal] || []).reduce((s, e) => s + e.cal, 0), 0);
+}
+
+function renderStats() {
+  const days = lastNDays(7);
+  const cals = days.map(dayCalories);
+  const today = todayKey();
+  // Шкала: максимум из съеденного и цели, +15% сверху чтобы столбцы не упирались в потолок
+  const scale = Math.max(goalCal || 0, ...cals, 1) * 1.15;
+
+  const plot = document.getElementById('week-chart');
+  plot.innerHTML = days.map((key, i) => {
+    const cal = cals[i];
+    const h = (cal / scale) * 100;
+    const cls = !cal ? 'empty' : (goalCal && cal > goalCal ? 'over' : '');
+    return `<div class="bar-col">
+      <div class="bar-val">${cal ? Math.round(cal) : ''}</div>
+      <div class="bar ${cls}" style="height:${h}%"></div>
+    </div>`;
+  }).join('');
+
+  if (goalCal) {
+    const pct = Math.min((goalCal / scale) * 100, 100);
+    plot.insertAdjacentHTML('beforeend',
+      `<div class="goal-line" style="bottom:${pct}%"><span>цель ${goalCal}</span></div>`);
+  }
+
+  document.getElementById('week-labels').innerHTML = days.map(key => {
+    const d = new Date(key + 'T00:00:00');
+    const wd = d.toLocaleDateString('ru-RU', { weekday: 'short' });
+    return `<span class="${key === today ? 'today' : ''}">${wd}<br>${d.getDate()}</span>`;
+  }).join('');
+
+  const logged = cals.filter(c => c > 0);
+  const avg = logged.length ? Math.round(logged.reduce((a, b) => a + b, 0) / logged.length) : 0;
+  document.getElementById('chart-summary').textContent =
+    `Среднее за дни с записями: ${avg} ккал` + (goalCal ? ` · дневная цель: ${goalCal} ккал` : '');
+}
+
+// ── Export / Import ──────────────────────────────────────────────────────────
+document.getElementById('export-btn').addEventListener('click', () => {
+  const data = { version: 1, exportedAt: new Date().toISOString(), foods, diary, goalCal };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `calories-backup-${todayKey()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+const importFile = document.getElementById('import-file');
+document.getElementById('import-btn').addEventListener('click', () => importFile.click());
+importFile.addEventListener('change', () => {
+  const file = importFile.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (Array.isArray(data.foods)) { foods = data.foods; save('foods', foods); }
+      if (data.diary && typeof data.diary === 'object') { diary = data.diary; save('diary', diary); }
+      if ('goalCal' in data) { goalCal = data.goalCal; save('goalCal', goalCal); }
+      renderDiary();
+      renderFoods();
+      renderStats();
+      alert('Данные успешно импортированы.');
+    } catch (err) {
+      alert('Не удалось прочитать файл: ' + err.message);
+    }
+    importFile.value = '';
+  };
+  reader.readAsText(file);
+});
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 renderDiary();

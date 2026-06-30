@@ -90,6 +90,25 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
 
         {selected && (
           <div className="space-y-2">
+            {selected.portions && selected.portions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selected.portions.map((p) => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => setAmount(String(p.grams))}
+                    className={cn(
+                      'rounded-full border px-2.5 py-0.5 text-xs transition-colors',
+                      +amount === p.grams
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-background hover:bg-accent',
+                    )}
+                  >
+                    {p.label} · {p.grams}г
+                  </button>
+                ))}
+              </div>
+            )}
             <Label htmlFor="entry-amount">Количество (г / мл)</Label>
             <Input
               id="entry-amount"

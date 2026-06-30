@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Plus, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -10,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Food } from '@/lib/types';
+import type { Food, FoodPortion } from '@/lib/types';
 
 export type FoodDraft = Omit<Food, 'id'>;
 
@@ -25,6 +26,9 @@ const EMPTY = { name: '', cal: '', protein: '', fat: '', carbs: '' };
 
 export function FoodDialog({ open, onOpenChange, food, onSave }: Props) {
   const [form, setForm] = useState(EMPTY);
+  const [portions, setPortions] = useState<FoodPortion[]>([]);
+  const [newLabel, setNewLabel] = useState('');
+  const [newGrams, setNewGrams] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -39,11 +43,27 @@ export function FoodDialog({ open, onOpenChange, food, onSave }: Props) {
             }
           : EMPTY,
       );
+      setPortions(food?.portions ? [...food.portions] : []);
+      setNewLabel('');
+      setNewGrams('');
     }
   }, [open, food]);
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function addPortion() {
+    const label = newLabel.trim();
+    const grams = parseFloat(newGrams);
+    if (!label || !grams) return;
+    setPortions((p) => [...p, { label, grams }]);
+    setNewLabel('');
+    setNewGrams('');
+  }
+
+  function removePortion(idx: number) {
+    setPortions((p) => p.filter((_, i) => i !== idx));
   }
 
   function save() {
@@ -57,6 +77,7 @@ export function FoodDialog({ open, onOpenChange, food, onSave }: Props) {
         protein: parseFloat(form.protein) || 0,
         fat: parseFloat(form.fat) || 0,
         carbs: parseFloat(form.carbs) || 0,
+        portions: portions.length > 0 ? portions : undefined,
       },
       food?.id ?? null,
     );
@@ -65,11 +86,11 @@ export function FoodDialog({ open, onOpenChange, food, onSave }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{food ? 'Редактировать продукт' : 'Новый продукт'}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="fm-name">Название</Label>
             <Input
@@ -84,6 +105,44 @@ export function FoodDialog({ open, onOpenChange, food, onSave }: Props) {
             <NumField id="fm-protein" label="Белки (г)" value={form.protein} onChange={(v) => set('protein', v)} />
             <NumField id="fm-fat" label="Жиры (г)" value={form.fat} onChange={(v) => set('fat', v)} />
             <NumField id="fm-carbs" label="Углеводы (г)" value={form.carbs} onChange={(v) => set('carbs', v)} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Быстрые порции (необязательно)</Label>
+            {portions.map((p, i) => (
+              <div key={i} className="flex items-center gap-2 text-sm">
+                <span className="flex-1">{p.label}</span>
+                <span className="text-muted-foreground">{p.grams}г</span>
+                <button
+                  type="button"
+                  onClick={() => removePortion(i)}
+                  className="text-destructive opacity-60 hover:opacity-100"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Название (напр. 1 шт)"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                className="flex-1"
+                onKeyDown={(e) => e.key === 'Enter' && addPortion()}
+              />
+              <Input
+                placeholder="г"
+                type="number"
+                min={1}
+                value={newGrams}
+                onChange={(e) => setNewGrams(e.target.value)}
+                className="w-20"
+                onKeyDown={(e) => e.key === 'Enter' && addPortion()}
+              />
+              <Button type="button" variant="outline" size="icon" onClick={addPortion}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
         <DialogFooter>

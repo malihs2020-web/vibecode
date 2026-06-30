@@ -11,6 +11,11 @@ export interface MacroGoals {
   carbs: number;
 }
 
+export interface FoodPortion {
+  label: string;
+  grams: number;
+}
+
 export interface Food {
   id: string;
   name: string;
@@ -18,6 +23,7 @@ export interface Food {
   protein: number;
   fat: number;
   carbs: number;
+  portions?: FoodPortion[];
 }
 
 export interface Entry {

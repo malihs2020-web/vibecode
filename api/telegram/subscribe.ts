@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getRedis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis';
-import type { ReminderKey, ReminderSetting, Subscriber } from '../_lib/types';
+import { getRedis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis.js';
+import type { ReminderKey, ReminderSetting, Subscriber } from '../_lib/types.js';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 

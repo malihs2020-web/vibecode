@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getRedis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis';
-import type { ReminderKey, Subscriber } from '../_lib/types';
+import { getRedis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis.js';
+import type { ReminderKey, Subscriber } from '../_lib/types.js';
 
 // Допустимое отклонение от настроенного времени, в минутах.
 // Должно быть не меньше половины интервала запуска cron на cron-job.org.

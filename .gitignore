@@ -6,3 +6,4 @@ dist-ssr
 *.log
 *.tsbuildinfo
 .env
+test-results/

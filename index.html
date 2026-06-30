@@ -16,6 +16,7 @@
     <div class="tabs">
       <button class="tab active" data-tab="calculator">Норма калорий</button>
       <button class="tab" data-tab="diary">Дневник питания</button>
+      <button class="tab" data-tab="stats">Статистика</button>
       <button class="tab" data-tab="foods">База продуктов</button>
     </div>
 
@@ -122,6 +123,18 @@
         </div>
       </div>
 
+      <div class="water-card">
+        <div class="water-head">
+          <span>💧 Вода</span>
+          <span><strong id="water-count">0</strong> / <span id="water-goal">8</span> стак. · <span id="water-ml">0</span> мл</span>
+        </div>
+        <div class="water-glasses" id="water-glasses"></div>
+        <div class="water-actions">
+          <button class="water-btn" id="water-minus">−</button>
+          <button class="water-btn wide" id="water-plus">+ стакан (250 мл)</button>
+        </div>
+      </div>
+
       <div class="meals">
         <div class="meal-section" data-meal="breakfast">
           <div class="meal-title">🌅 Завтрак</div>
@@ -153,6 +166,28 @@
         <button class="btn-primary" id="add-food-btn">+ Новый продукт</button>
       </div>
       <div class="foods-list" id="foods-list"></div>
+    </section>
+
+    <!-- СТАТИСТИКА -->
+    <section class="tab-content" id="tab-stats">
+      <div class="card">
+        <h2>Калории за последние 7 дней</h2>
+        <div class="chart">
+          <div class="chart-plot" id="week-chart"></div>
+          <div class="chart-labels" id="week-labels"></div>
+        </div>
+        <div class="chart-summary" id="chart-summary"></div>
+      </div>
+
+      <div class="card">
+        <h2>Резервная копия</h2>
+        <p class="data-hint">Сохраните все данные (продукты, дневник, цель) в файл или восстановите их на другом устройстве.</p>
+        <div class="data-actions">
+          <button class="btn-secondary" id="export-btn">⬇ Экспорт в JSON</button>
+          <button class="btn-secondary" id="import-btn">⬆ Импорт из JSON</button>
+          <input type="file" id="import-file" accept="application/json,.json" hidden />
+        </div>
+      </div>
     </section>
   </div>
 

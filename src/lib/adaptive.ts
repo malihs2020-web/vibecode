@@ -7,7 +7,7 @@ const MAX_CORRECTION = 150; // ккал/день за одну корректи�
 const MAX_DRIFT = 0.2;      // ±20% от базового Mifflin TDEE
 const MIN_DAYS = 5;         // минимум дней с данными за окно
 
-const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
+const MEALS = ['breakfast', 'breakfast2', 'lunch', 'afternoon', 'dinner', 'dinner2', 'snack'] as const;
 
 function dayCalories(diary: Diary, key: string): number {
   const day = diary[key];

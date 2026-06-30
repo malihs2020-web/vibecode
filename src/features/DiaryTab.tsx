@@ -10,28 +10,31 @@ import type { AppSettings, Diary, DiaryDay, Entry, Food, MacroGoals, MealType, W
 import { AddEntryDialog } from './AddEntryDialog';
 
 const ALL_MEALS: { id: MealType; title: string }[] = [
-  { id: 'breakfast', title: '🌅 Завтрак' },
-  { id: 'lunch', title: '☀️ Обед' },
-  { id: 'dinner', title: '🌙 Ужин' },
-  { id: 'snack', title: '🍎 Перекус' },
+  { id: 'breakfast',  title: '🌅 Завтрак' },
+  { id: 'breakfast2', title: '🥐 Второй завтрак' },
+  { id: 'lunch',      title: '☀️ Обед' },
+  { id: 'afternoon',  title: '🍵 Полдник' },
+  { id: 'dinner',     title: '🌙 Ужин' },
+  { id: 'dinner2',    title: '🌛 Второй ужин' },
+  { id: 'snack',      title: '🍎 Перекус' },
 ];
 
 const MEAL_LABELS: Record<MealType, string> = {
-  breakfast: 'Завтрак',
-  lunch: 'Обед',
-  dinner: 'Ужин',
-  snack: 'Перекус',
+  breakfast:  'Завтрак',
+  breakfast2: 'Второй завтрак',
+  lunch:      'Обед',
+  afternoon:  'Полдник',
+  dinner:     'Ужин',
+  dinner2:    'Второй ужин',
+  snack:      'Перекус',
 };
 
 const GLASS_OPTIONS = [100, 150, 200, 250, 300, 330, 500];
 const WATER_GOAL_OPTIONS = [4, 5, 6, 7, 8, 9, 10, 12];
 
 const EMPTY_DAY: DiaryDay = {
-  breakfast: [],
-  lunch: [],
-  dinner: [],
-  snack: [],
-  water: 0,
+  breakfast: [], breakfast2: [], lunch: [], afternoon: [],
+  dinner: [], dinner2: [], snack: [], water: 0,
 };
 
 interface Props {

@@ -45,3 +45,18 @@ export interface DiaryDay {
 }
 
 export type Diary = Record<string, DiaryDay>;
+
+export interface WeightEntry {
+  date: string;
+  weight: number;
+}
+
+export interface AdaptiveState {
+  tdee: number;            // скорректированная TDEE
+  baseTdee: number;        // исходная TDEE по Mifflin (для зажима)
+  lastDate: string;        // дата последней корректировки
+  lastCorrection: number;  // ккал/день последней корректировки
+  lastTrendDelta: number;  // фактическое изменение тренда (кг)
+  lastExpectedDelta: number;
+  lastAvgCal: number;
+}

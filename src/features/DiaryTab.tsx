@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Droplets, Minus, Plus, UtensilsCrossed, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Droplets, Minus, Plus, Scale, UtensilsCrossed, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { formatLongDate, shiftDay, todayKey } from '@/lib/date';
-import type { Diary, DiaryDay, Entry, Food, MacroGoals, MealType } from '@/lib/types';
+import type { Diary, DiaryDay, Entry, Food, MacroGoals, MealType, WeightEntry } from '@/lib/types';
 import { AddEntryDialog } from './AddEntryDialog';
 
 const WATER_GOAL = 8;
@@ -32,9 +32,11 @@ interface Props {
   goalCal: number | null;
   macroGoals: MacroGoals | null;
   foods: Food[];
+  weightLog: WeightEntry[];
   onAddEntry: (date: string, meal: MealType, entry: Entry) => void;
   onRemoveEntry: (date: string, meal: MealType, idx: number) => void;
   onChangeWater: (date: string, delta: number) => void;
+  onAddWeight: (date: string, weight: number) => void;
 }
 
 export function DiaryTab({
@@ -42,12 +44,17 @@ export function DiaryTab({
   goalCal,
   macroGoals,
   foods,
+  weightLog,
   onAddEntry,
   onRemoveEntry,
   onChangeWater,
+  onAddWeight,
 }: Props) {
   const [date, setDate] = useState(todayKey());
   const [dialogMeal, setDialogMeal] = useState<MealType | null>(null);
+  const [weightInput, setWeightInput] = useState('');
+
+  const todayWeight = weightLog.find((e) => e.date === date)?.weight ?? null;
 
   const day = diary[date] ?? EMPTY_DAY;
   const water = day.water ?? 0;
@@ -162,6 +169,46 @@ export function DiaryTab({
               onClick={() => onChangeWater(date, 1)}
             >
               <Plus /> стакан (250 мл)
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Вес */}
+      <Card>
+        <CardContent className="space-y-2 p-5">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span className="flex items-center gap-1.5"><Scale className="h-4 w-4" /> Вес</span>
+            {todayWeight && (
+              <span className="font-semibold text-foreground">{todayWeight} кг</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              step="0.1"
+              min={20}
+              max={300}
+              placeholder="кг"
+              value={weightInput}
+              onChange={(e) => setWeightInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const w = parseFloat(weightInput);
+                  if (w > 0) { onAddWeight(date, w); setWeightInput(''); }
+                }
+              }}
+              className="flex h-9 w-28 rounded-md border bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                const w = parseFloat(weightInput);
+                if (w > 0) { onAddWeight(date, w); setWeightInput(''); }
+              }}
+            >
+              <Plus className="mr-1 h-4 w-4" /> Записать вес
             </Button>
           </div>
         </CardContent>

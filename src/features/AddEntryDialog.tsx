@@ -162,6 +162,7 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
 
   // photo mode
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -389,14 +390,43 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
               className="hidden"
               onChange={handlePhotoSelect}
             />
-            <Button
-              variant="outline"
-              className="w-full gap-2"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Camera className="h-4 w-4" />
-              {photoPreview ? 'Выбрать другое фото' : 'Выбрать фото'}
-            </Button>
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoSelect}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Camera className="h-4 w-4" />
+                Камера
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => galleryInputRef.current?.click()}
+              >
+                🖼️ Галерея
+              </Button>
+            </div>
+            {photoPreview && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs text-muted-foreground"
+                onClick={() => galleryInputRef.current?.click()}
+              >
+                Выбрать другое фото
+              </Button>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Если камера недоступна — проверь разрешения: Настройки телефона → Telegram → Камера → Разрешить.
+            </p>
 
             {photoPreview && (
               <>

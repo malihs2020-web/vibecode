@@ -24,27 +24,148 @@ interface Props {
 
 type Mode = 'search' | 'ai' | 'photo';
 
+interface EditableResult {
+  name: string;
+  grams: string;
+  cal: string;
+  protein: string;
+  fat: string;
+  carbs: string;
+  // per-gram ratios for proportional recalc when grams change
+  calPg: number;
+  proteinPg: number;
+  fatPg: number;
+  carbsPg: number;
+}
+
+function toEditable(e: ParsedFoodEntry): EditableResult {
+  const g = e.grams > 0 ? e.grams : 100;
+  return {
+    name: e.name,
+    grams: String(e.grams),
+    cal: String(Math.round(e.cal)),
+    protein: e.protein.toFixed(1),
+    fat: e.fat.toFixed(1),
+    carbs: e.carbs.toFixed(1),
+    calPg: e.cal / g,
+    proteinPg: e.protein / g,
+    fatPg: e.fat / g,
+    carbsPg: e.carbs / g,
+  };
+}
+
+function patchEntry(list: EditableResult[], idx: number, field: string, value: string): EditableResult[] {
+  return list.map((item, i) => {
+    if (i !== idx) return item;
+    if (field === 'grams') {
+      const g = parseFloat(value);
+      if (!isNaN(g) && g > 0) {
+        return {
+          ...item,
+          grams: value,
+          cal: String(Math.round(item.calPg * g)),
+          protein: (item.proteinPg * g).toFixed(1),
+          fat: (item.fatPg * g).toFixed(1),
+          carbs: (item.carbsPg * g).toFixed(1),
+        };
+      }
+      return { ...item, grams: value };
+    }
+    return { ...item, [field]: value };
+  });
+}
+
+function renderResults(
+  items: EditableResult[],
+  onPatch: (idx: number, field: string, value: string) => void,
+  onAddAll: () => void,
+  onClose: () => void,
+) {
+  return (
+    <div className="space-y-2">
+      <div className="rounded-md border divide-y">
+        {items.map((item, i) => (
+          <div key={i} className="px-3 py-2 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium truncate">{item.name}</span>
+              <div className="flex items-center gap-1 shrink-0">
+                <Input
+                  type="number"
+                  min={0}
+                  value={item.cal}
+                  onChange={(e) => onPatch(i, 'cal', e.target.value)}
+                  className="w-16 h-7 text-xs px-1.5 text-right"
+                />
+                <span className="text-xs text-muted-foreground">ккал</span>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              <span className="text-xs text-muted-foreground">Вес</span>
+              <Input
+                type="number"
+                min={1}
+                value={item.grams}
+                onChange={(e) => onPatch(i, 'grams', e.target.value)}
+                className="w-14 h-7 text-xs px-1.5"
+              />
+              <span className="text-xs text-muted-foreground">г ·</span>
+              <span className="text-xs text-muted-foreground">Б</span>
+              <Input
+                type="number"
+                min={0}
+                value={item.protein}
+                onChange={(e) => onPatch(i, 'protein', e.target.value)}
+                className="w-12 h-7 text-xs px-1.5"
+              />
+              <span className="text-xs text-muted-foreground">Ж</span>
+              <Input
+                type="number"
+                min={0}
+                value={item.fat}
+                onChange={(e) => onPatch(i, 'fat', e.target.value)}
+                className="w-12 h-7 text-xs px-1.5"
+              />
+              <span className="text-xs text-muted-foreground">У</span>
+              <Input
+                type="number"
+                min={0}
+                value={item.carbs}
+                onChange={(e) => onPatch(i, 'carbs', e.target.value)}
+                className="w-12 h-7 text-xs px-1.5"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button onClick={onAddAll}>Добавить всё</Button>
+      </div>
+    </div>
+  );
+}
+
 export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
   const hasGroq = Boolean(groqKey());
   const [mode, setMode] = useState<Mode>('search');
 
-  // search mode state
+  // search mode
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Food | null>(null);
   const [amount, setAmount] = useState('100');
 
-  // ai mode state
+  // ai text mode
   const [aiText, setAiText] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [aiResults, setAiResults] = useState<ParsedFoodEntry[]>([]);
+  const [aiResults, setAiResults] = useState<EditableResult[]>([]);
 
-  // photo mode state
+  // photo mode
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
-  const [photoResults, setPhotoResults] = useState<ParsedFoodEntry[]>([]);
+  const [photoResults, setPhotoResults] = useState<EditableResult[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -88,7 +209,7 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
     setAiResults([]);
     try {
       const parsed = await parseFoodText(aiText);
-      setAiResults(parsed);
+      setAiResults(parsed.map(toEditable));
     } catch (e) {
       setAiError(e instanceof Error ? e.message : 'Ошибка запроса');
     } finally {
@@ -101,11 +222,11 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
       onAdd({
         foodId: uid(),
         name: item.name,
-        amount: item.grams,
-        cal: item.cal,
-        protein: item.protein,
-        fat: item.fat,
-        carbs: item.carbs,
+        amount: parseFloat(item.grams) || 0,
+        cal: parseFloat(item.cal) || 0,
+        protein: parseFloat(item.protein) || 0,
+        fat: parseFloat(item.fat) || 0,
+        carbs: parseFloat(item.carbs) || 0,
       });
     }
     onOpenChange(false);
@@ -132,7 +253,7 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
     setPhotoResults([]);
     try {
       const parsed = await parseFoodPhoto(photoPreview);
-      setPhotoResults(parsed);
+      setPhotoResults(parsed.map(toEditable));
     } catch (e) {
       setPhotoError(e instanceof Error ? e.message : 'Ошибка запроса');
     } finally {
@@ -145,11 +266,11 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
       onAdd({
         foodId: uid(),
         name: item.name,
-        amount: item.grams,
-        cal: item.cal,
-        protein: item.protein,
-        fat: item.fat,
-        carbs: item.carbs,
+        amount: parseFloat(item.grams) || 0,
+        cal: parseFloat(item.cal) || 0,
+        protein: parseFloat(item.protein) || 0,
+        fat: parseFloat(item.fat) || 0,
+        carbs: parseFloat(item.carbs) || 0,
       });
     }
     onOpenChange(false);
@@ -259,7 +380,7 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
         {mode === 'photo' && (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Сфотографируйте блюдо — AI оценит состав и КБЖУ. Значения можно поправить перед добавлением.
+              Сфотографируйте блюдо — AI оценит состав. Вес и КБЖУ можно скорректировать перед добавлением.
             </p>
             <input
               ref={fileInputRef}
@@ -291,10 +412,7 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
                   disabled={photoLoading}
                 >
                   {photoLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Распознаю...
-                    </>
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Распознаю...</>
                   ) : (
                     'Распознать'
                   )}
@@ -308,28 +426,11 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
               </p>
             )}
 
-            {photoResults.length > 0 && (
-              <div className="space-y-2">
-                <div className="rounded-md border divide-y">
-                  {photoResults.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
-                      <div>
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          ~{item.grams}г · Б{item.protein.toFixed(1)} Ж{item.fat.toFixed(1)} У{item.carbs.toFixed(1)}
-                        </div>
-                      </div>
-                      <span className="font-semibold text-primary">{Math.round(item.cal)} ккал</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="secondary" onClick={() => onOpenChange(false)}>
-                    Отмена
-                  </Button>
-                  <Button onClick={addAllPhotoResults}>Добавить всё</Button>
-                </div>
-              </div>
+            {photoResults.length > 0 && renderResults(
+              photoResults,
+              (idx, field, value) => setPhotoResults((prev) => patchEntry(prev, idx, field, value)),
+              addAllPhotoResults,
+              () => onOpenChange(false),
             )}
           </div>
         )}
@@ -353,10 +454,7 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
               disabled={aiLoading || !aiText.trim()}
             >
               {aiLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Считаю...
-                </>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Считаю...</>
               ) : (
                 'Распознать'
               )}
@@ -368,28 +466,11 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
               </p>
             )}
 
-            {aiResults.length > 0 && (
-              <div className="space-y-2">
-                <div className="rounded-md border divide-y">
-                  {aiResults.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
-                      <div>
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {item.grams}г · Б{item.protein.toFixed(1)} Ж{item.fat.toFixed(1)} У{item.carbs.toFixed(1)}
-                        </div>
-                      </div>
-                      <span className="font-semibold text-primary">{Math.round(item.cal)} ккал</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="secondary" onClick={() => onOpenChange(false)}>
-                    Отмена
-                  </Button>
-                  <Button onClick={addAllAiResults}>Добавить всё</Button>
-                </div>
-              </div>
+            {aiResults.length > 0 && renderResults(
+              aiResults,
+              (idx, field, value) => setAiResults((prev) => patchEntry(prev, idx, field, value)),
+              addAllAiResults,
+              () => onOpenChange(false),
             )}
           </div>
         )}

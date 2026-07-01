@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, ChevronLeft, ChevronRight, Droplets, Minus, Plus, Scale, Settings2, UtensilsCrossed, X } from 'lucide-react';
+import { Bell, ChevronDown, ChevronLeft, ChevronRight, Droplets, Minus, Plus, Scale, Settings2, UtensilsCrossed, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -71,6 +71,15 @@ export function DiaryTab({
   const [dialogMeal, setDialogMeal] = useState<MealType | null>(null);
   const [weightInput, setWeightInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [collapsedMeals, setCollapsedMeals] = useState<Set<MealType>>(new Set());
+
+  function toggleCollapse(id: MealType) {
+    setCollapsedMeals((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   const todayWeight = weightLog.find((e) => e.date === date)?.weight ?? null;
   const activeMeals = ALL_MEALS.filter((m) => settings.activeMeals.includes(m.id));
@@ -219,36 +228,55 @@ export function DiaryTab({
 
       {/* Приёмы пищи */}
       <div className="space-y-3">
-        {activeMeals.map((meal) => (
-          <Card key={meal.id}>
-            <CardContent className="p-0">
-              <div className="border-b px-5 py-3 font-semibold">{meal.title}</div>
-              <div className="px-5">
-                {day[meal.id].map((entry, idx) => (
-                  <div key={idx} className="flex items-center gap-3 border-b py-2.5 text-sm last:border-b-0">
-                    <span className="flex-1 font-medium">{entry.name}</span>
-                    <span className="hidden text-xs text-muted-foreground sm:block">
-                      {entry.amount}г · Б{entry.protein.toFixed(1)} Ж{entry.fat.toFixed(1)} У{entry.carbs.toFixed(1)}
-                    </span>
-                    <span className="min-w-16 text-right font-semibold text-primary">
-                      {Math.round(entry.cal)} ккал
-                    </span>
-                    <button type="button" aria-label="Удалить"
-                      className="text-destructive opacity-60 hover:opacity-100"
-                      onClick={() => onRemoveEntry(date, meal.id, idx)}>
-                      <X className="h-4 w-4" />
+        {activeMeals.map((meal) => {
+          const entries = day[meal.id];
+          const mealCal = entries.reduce((s, e) => s + e.cal, 0);
+          const collapsed = collapsedMeals.has(meal.id);
+          return (
+            <Card key={meal.id}>
+              <CardContent className="p-0">
+                <button
+                  type="button"
+                  onClick={() => toggleCollapse(meal.id)}
+                  className="flex w-full items-center gap-2 px-5 py-3 text-left font-semibold hover:bg-accent transition-colors"
+                >
+                  <span className="flex-1">{meal.title}</span>
+                  {entries.length > 0 && collapsed && (
+                    <span className="text-sm font-normal text-primary">{Math.round(mealCal)} ккал</span>
+                  )}
+                  <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', collapsed && '-rotate-90')} />
+                </button>
+                {!collapsed && (
+                  <>
+                    <div className="px-5">
+                      {entries.map((entry, idx) => (
+                        <div key={idx} className="flex items-center gap-3 border-b py-2.5 text-sm last:border-b-0">
+                          <span className="flex-1 font-medium">{entry.name}</span>
+                          <span className="hidden text-xs text-muted-foreground sm:block">
+                            {entry.amount}г · Б{entry.protein.toFixed(1)} Ж{entry.fat.toFixed(1)} У{entry.carbs.toFixed(1)}
+                          </span>
+                          <span className="min-w-16 text-right font-semibold text-primary">
+                            {Math.round(entry.cal)} ккал
+                          </span>
+                          <button type="button" aria-label="Удалить"
+                            className="text-destructive opacity-60 hover:opacity-100"
+                            onClick={() => onRemoveEntry(date, meal.id, idx)}>
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button"
+                      className="w-full border-t px-5 py-3 text-left text-sm font-medium text-primary hover:bg-accent"
+                      onClick={() => setDialogMeal(meal.id)}>
+                      + Добавить продукт
                     </button>
-                  </div>
-                ))}
-              </div>
-              <button type="button"
-                className="w-full border-t px-5 py-3 text-left text-sm font-medium text-primary hover:bg-accent"
-                onClick={() => setDialogMeal(meal.id)}>
-                + Добавить продукт
-              </button>
-            </CardContent>
-          </Card>
-        ))}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Настройки дневника */}

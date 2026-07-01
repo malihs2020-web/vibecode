@@ -168,7 +168,7 @@ export function CalculatorTab({ onGoalChange, adaptiveState }: Props) {
             {/* Направление цели */}
             <div className="flex flex-col gap-2 sm:col-span-2">
               <Label>Цель</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 min-[460px]:grid-cols-3 gap-2">
                 {GOAL_DIRECTION_OPTIONS.map((o) => (
                   <button
                     key={o.value}

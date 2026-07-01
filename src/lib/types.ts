@@ -63,10 +63,19 @@ export interface ReminderSetting {
   time: string; // 'HH:MM', локальное время пользователя
 }
 
+export interface WaterReminderSettings {
+  enabled: boolean;
+  wakeStart: string;  // 'HH:MM'
+  wakeEnd: string;    // 'HH:MM'
+  maxPerDay: number;
+}
+
 export interface AppSettings {
   activeMeals: MealType[];
   glassML: number;
   waterGoal: number;
+  waterGoalOverride?: number;  // задана вручную; undefined = авторасчёт
+  waterReminder?: WaterReminderSettings;
   telegramReminders?: Partial<Record<ReminderKey, ReminderSetting>>;
 }
 

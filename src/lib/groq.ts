@@ -128,6 +128,7 @@ export async function parseFoodPhoto(dataUrl: string): Promise<ParsedFoodEntry[]
 
   const data = await res.json();
   const raw = (data.choices[0].message.content as string).trim()
+    .replace(/<think>[\s\S]*?<\/think>\s*/i, '')
     .replace(/^```json\n?/, '').replace(/\n?```$/, '');
   return JSON.parse(raw) as ParsedFoodEntry[];
 }

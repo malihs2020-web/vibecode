@@ -1,0 +1,38 @@
+name: Deploy to Vercel
+
+# Запускает деплой на Vercel при каждом пуше в production-ветку,
+# минуя нативную Git-интеграцию Vercel (она периодически не срабатывает).
+# Использует Deploy Hook — секрет VERCEL_DEPLOY_HOOK в настройках репозитория.
+
+on:
+  push:
+    branches:
+      - claude/calorie-calculator-wy9cv0
+  workflow_dispatch: {} # можно запустить вручную из вкладки Actions
+
+jobs:
+  trigger-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deploy Hook
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "❌ Секрет VERCEL_DEPLOY_HOOK не задан."
+            echo "Создай Deploy Hook в Vercel (Settings → Git → Deploy Hooks)"
+            echo "и добавь его URL в Settings → Secrets and variables → Actions"
+            echo "как VERCEL_DEPLOY_HOOK."
+            exit 1
+          fi
+          echo "Запускаю деплой на Vercel…"
+          code=$(curl -s -o response.json -w "%{http_code}" -X POST "$HOOK")
+          echo "HTTP $code"
+          cat response.json
+          echo
+          if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
+            echo "✅ Деплой поставлен в очередь Vercel."
+          else
+            echo "❌ Не удалось запустить деплой."
+            exit 1
+          fi

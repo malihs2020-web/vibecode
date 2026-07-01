@@ -17,6 +17,7 @@ import { CalculatorTab } from '@/features/CalculatorTab';
 import { DiaryTab } from '@/features/DiaryTab';
 import { StatsTab } from '@/features/StatsTab';
 import { FoodsTab } from '@/features/FoodsTab';
+import { FeedTab } from '@/features/FeedTab';
 import type { FoodDraft } from '@/features/FoodDialog';
 
 const EMPTY_DAY: DiaryDay = {
@@ -38,6 +39,18 @@ export default function App() {
   const [settings, setSettings] = useLocalStorage<AppSettings>('settings', DEFAULT_SETTINGS);
 
   useAutoBackup(foods, diary, goalCal);
+
+  // Логируем сессию для DAU/MAU
+  useEffect(() => {
+    const initData = window.Telegram?.WebApp?.initData;
+    if (initData) {
+      fetch('/api/feed/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData }),
+      }).catch(() => {});
+    }
+  }, []);
 
   // Еженедельная адаптивная корректировка TDEE
   useEffect(() => {
@@ -133,11 +146,12 @@ export default function App() {
       </header>
 
       <Tabs defaultValue="calculator">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="calculator">Норма</TabsTrigger>
-          <TabsTrigger value="diary">Дневник</TabsTrigger>
-          <TabsTrigger value="stats">Статистика</TabsTrigger>
-          <TabsTrigger value="foods">Продукты</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5 text-xs">
+          <TabsTrigger value="calculator" className="px-1">Норма</TabsTrigger>
+          <TabsTrigger value="diary" className="px-1">Дневник</TabsTrigger>
+          <TabsTrigger value="stats" className="px-1">График</TabsTrigger>
+          <TabsTrigger value="foods" className="px-1">Продукты</TabsTrigger>
+          <TabsTrigger value="feed" className="px-1">Лента</TabsTrigger>
         </TabsList>
 
         <TabsContent value="calculator">
@@ -166,6 +180,9 @@ export default function App() {
         </TabsContent>
         <TabsContent value="foods">
           <FoodsTab foods={foods} onSave={saveFood} onDelete={deleteFood} />
+        </TabsContent>
+        <TabsContent value="feed">
+          <FeedTab />
         </TabsContent>
       </Tabs>
     </div>

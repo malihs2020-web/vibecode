@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Camera, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { uid } from '@/lib/foods';
-import { groqKey, parseFoodText, type ParsedFoodEntry } from '@/lib/groq';
+import { compressImage, groqKey, parseFoodPhoto, parseFoodText, type ParsedFoodEntry } from '@/lib/groq';
 import type { Entry, Food } from '@/lib/types';
 
 interface Props {
@@ -22,7 +22,7 @@ interface Props {
   onAdd: (entry: Entry) => void;
 }
 
-type Mode = 'search' | 'ai';
+type Mode = 'search' | 'ai' | 'photo';
 
 export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
   const hasGroq = Boolean(groqKey());
@@ -39,6 +39,13 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiResults, setAiResults] = useState<ParsedFoodEntry[]>([]);
 
+  // photo mode state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoResults, setPhotoResults] = useState<ParsedFoodEntry[]>([]);
+
   useEffect(() => {
     if (open) {
       setQuery('');
@@ -47,6 +54,9 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
       setAiText('');
       setAiError(null);
       setAiResults([]);
+      setPhotoPreview(null);
+      setPhotoError(null);
+      setPhotoResults([]);
     }
   }, [open]);
 
@@ -101,6 +111,50 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
     onOpenChange(false);
   }
 
+  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoError(null);
+    setPhotoResults([]);
+    try {
+      const dataUrl = await compressImage(file);
+      setPhotoPreview(dataUrl);
+    } catch {
+      setPhotoError('Не удалось загрузить изображение');
+    }
+    e.target.value = '';
+  }
+
+  async function handlePhotoRecognize() {
+    if (!photoPreview) return;
+    setPhotoLoading(true);
+    setPhotoError(null);
+    setPhotoResults([]);
+    try {
+      const parsed = await parseFoodPhoto(photoPreview);
+      setPhotoResults(parsed);
+    } catch (e) {
+      setPhotoError(e instanceof Error ? e.message : 'Ошибка запроса');
+    } finally {
+      setPhotoLoading(false);
+    }
+  }
+
+  function addAllPhotoResults() {
+    for (const item of photoResults) {
+      onAdd({
+        foodId: uid(),
+        name: item.name,
+        amount: item.grams,
+        cal: item.cal,
+        protein: item.protein,
+        fat: item.fat,
+        carbs: item.carbs,
+      });
+    }
+    onOpenChange(false);
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -110,7 +164,7 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
 
         {hasGroq && (
           <div className="flex gap-1 rounded-lg border bg-muted p-1">
-            {(['search', 'ai'] as const).map((m) => (
+            {(['search', 'ai', 'photo'] as const).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -122,7 +176,7 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
-                {m === 'search' ? 'Поиск' : '✨ Описать текстом'}
+                {m === 'search' ? 'Поиск' : m === 'ai' ? '✨ Текст' : '📷 Фото'}
               </button>
             ))}
           </div>
@@ -200,6 +254,84 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
               </div>
             )}
           </>
+        )}
+
+        {mode === 'photo' && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Сфотографируйте блюдо — AI оценит состав и КБЖУ. Значения можно поправить перед добавлением.
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handlePhotoSelect}
+            />
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Camera className="h-4 w-4" />
+              {photoPreview ? 'Выбрать другое фото' : 'Выбрать фото'}
+            </Button>
+
+            {photoPreview && (
+              <>
+                <img
+                  src={photoPreview}
+                  alt="Превью"
+                  className="w-full rounded-md border object-cover max-h-48"
+                />
+                <Button
+                  className="w-full"
+                  onClick={handlePhotoRecognize}
+                  disabled={photoLoading}
+                >
+                  {photoLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Распознаю...
+                    </>
+                  ) : (
+                    'Распознать'
+                  )}
+                </Button>
+              </>
+            )}
+
+            {photoError && (
+              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {photoError}
+              </p>
+            )}
+
+            {photoResults.length > 0 && (
+              <div className="space-y-2">
+                <div className="rounded-md border divide-y">
+                  {photoResults.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <div>
+                        <div className="font-medium">{item.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          ~{item.grams}г · Б{item.protein.toFixed(1)} Ж{item.fat.toFixed(1)} У{item.carbs.toFixed(1)}
+                        </div>
+                      </div>
+                      <span className="font-semibold text-primary">{Math.round(item.cal)} ккал</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="secondary" onClick={() => onOpenChange(false)}>
+                    Отмена
+                  </Button>
+                  <Button onClick={addAllPhotoResults}>Добавить всё</Button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {mode === 'ai' && (

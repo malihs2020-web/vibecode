@@ -46,5 +46,5 @@ ALTER TABLE reports   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions  ENABLE ROW LEVEL SECURITY;
 
 -- Публичное чтение постов (только не скрытые)
-CREATE POLICY IF NOT EXISTS "posts_public_read"     ON posts     FOR SELECT USING (NOT is_hidden);
-CREATE POLICY IF NOT EXISTS "reactions_public_read" ON reactions FOR SELECT USING (true);
+CREATE POLICY "posts_public_read"     ON posts     FOR SELECT USING (NOT is_hidden);
+CREATE POLICY "reactions_public_read" ON reactions FOR SELECT USING (true);

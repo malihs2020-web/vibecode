@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Bell, ChevronDown, ChevronLeft, ChevronRight, Droplets, Minus, Plus, Scale, Settings2, UtensilsCrossed, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -71,14 +72,13 @@ export function DiaryTab({
   const [dialogMeal, setDialogMeal] = useState<MealType | null>(null);
   const [weightInput, setWeightInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
-  const [collapsedMeals, setCollapsedMeals] = useState<Set<MealType>>(new Set());
+  const [collapsedArr, setCollapsedArr] = useLocalStorage<MealType[]>('collapsedMeals', []);
+  const collapsedMeals = new Set(collapsedArr);
 
   function toggleCollapse(id: MealType) {
-    setCollapsedMeals((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+    setCollapsedArr((prev) =>
+      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id],
+    );
   }
 
   const todayWeight = weightLog.find((e) => e.date === date)?.weight ?? null;

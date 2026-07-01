@@ -57,12 +57,6 @@ async function generateBatch(): Promise<Array<{ text: string; goal_tag: string }
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
-  const cronSecret = process.env.CRON_SECRET ?? '';
-  if (cronSecret) {
-    const auth = req.headers.authorization ?? '';
-    if (auth !== `Bearer ${cronSecret}`) return res.status(401).end();
-  }
-
   try {
     const posts = await generateBatch();
 

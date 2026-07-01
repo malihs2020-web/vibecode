@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -31,7 +31,6 @@ interface EditableResult {
   protein: string;
   fat: string;
   carbs: string;
-  // per-gram ratios for proportional recalc when grams change
   calPg: number;
   proteinPg: number;
   fatPg: number;
@@ -161,12 +160,26 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
   const [aiResults, setAiResults] = useState<EditableResult[]>([]);
 
   // photo mode
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [cameraActive, setCameraActive] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [photoResults, setPhotoResults] = useState<EditableResult[]>([]);
+
+  // attach stream to video element when camera activates
+  useEffect(() => {
+    if (cameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [cameraActive]);
+
+  // stop camera when dialog closes
+  useEffect(() => {
+    if (!open) stopCamera();
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -221,26 +234,55 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
   function addAllAiResults() {
     for (const item of aiResults) {
       onAdd({
-        foodId: uid(),
-        name: item.name,
-        amount: parseFloat(item.grams) || 0,
-        cal: parseFloat(item.cal) || 0,
-        protein: parseFloat(item.protein) || 0,
-        fat: parseFloat(item.fat) || 0,
+        foodId: uid(), name: item.name,
+        amount: parseFloat(item.grams) || 0, cal: parseFloat(item.cal) || 0,
+        protein: parseFloat(item.protein) || 0, fat: parseFloat(item.fat) || 0,
         carbs: parseFloat(item.carbs) || 0,
       });
     }
     onOpenChange(false);
   }
 
-  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  // camera via getUserMedia
+  async function openCamera() {
+    setPhotoError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } },
+      });
+      streamRef.current = stream;
+      setCameraActive(true);
+    } catch {
+      setPhotoError('Не удалось открыть камеру. Разреши доступ: Настройки → Telegram → Камера.');
+    }
+  }
+
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setCameraActive(false);
+  }
+
+  function capturePhoto() {
+    const video = videoRef.current;
+    if (!video) return;
+    const MAX = 1024;
+    const scale = Math.min(1, MAX / Math.max(video.videoWidth, video.videoHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    canvas.getContext('2d')!.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setPhotoPreview(canvas.toDataURL('image/jpeg', 0.7));
+    stopCamera();
+  }
+
+  async function handleGallerySelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoError(null);
     setPhotoResults([]);
     try {
-      const dataUrl = await compressImage(file);
-      setPhotoPreview(dataUrl);
+      setPhotoPreview(await compressImage(file));
     } catch {
       setPhotoError('Не удалось загрузить изображение');
     }
@@ -265,12 +307,9 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
   function addAllPhotoResults() {
     for (const item of photoResults) {
       onAdd({
-        foodId: uid(),
-        name: item.name,
-        amount: parseFloat(item.grams) || 0,
-        cal: parseFloat(item.cal) || 0,
-        protein: parseFloat(item.protein) || 0,
-        fat: parseFloat(item.fat) || 0,
+        foodId: uid(), name: item.name,
+        amount: parseFloat(item.grams) || 0, cal: parseFloat(item.cal) || 0,
+        protein: parseFloat(item.protein) || 0, fat: parseFloat(item.fat) || 0,
         carbs: parseFloat(item.carbs) || 0,
       });
     }
@@ -290,7 +329,7 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
               <button
                 key={m}
                 type="button"
-                onClick={() => setMode(m)}
+                onClick={() => { stopCamera(); setMode(m); }}
                 className={cn(
                   'flex-1 rounded-md py-1 text-sm font-medium transition-colors',
                   mode === m
@@ -312,7 +351,6 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-
             <div className="max-h-56 overflow-y-auto rounded-md border">
               {results.length === 0 ? (
                 <div className="p-3 text-sm text-muted-foreground">Ничего не найдено</div>
@@ -333,7 +371,6 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
                 ))
               )}
             </div>
-
             {selected && (
               <div className="space-y-2">
                 {selected.portions && selected.portions.length > 0 && (
@@ -368,9 +405,7 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
                   {(selected.fat * k).toFixed(1)}г · У{(selected.carbs * k).toFixed(1)}г
                 </p>
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => onOpenChange(false)}>
-                    Отмена
-                  </Button>
+                  <Button variant="secondary" onClick={() => onOpenChange(false)}>Отмена</Button>
                   <Button onClick={confirmSearch}>Добавить</Button>
                 </div>
               </div>
@@ -380,72 +415,47 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
 
         {mode === 'photo' && (
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              Сфотографируйте блюдо — AI оценит состав. Вес и КБЖУ можно скорректировать перед добавлением.
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoSelect}
-            />
-            <input
-              ref={galleryInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoSelect}
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Camera className="h-4 w-4" />
-                Камера
-              </Button>
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => galleryInputRef.current?.click()}
-              >
-                🖼️ Галерея
-              </Button>
-            </div>
-            {photoPreview && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-xs text-muted-foreground"
-                onClick={() => galleryInputRef.current?.click()}
-              >
-                Выбрать другое фото
-              </Button>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Если камера недоступна — проверь разрешения: Настройки телефона → Telegram → Камера → Разрешить.
-            </p>
-
-            {photoPreview && (
-              <>
-                <img
-                  src={photoPreview}
-                  alt="Превью"
-                  className="w-full rounded-md border object-cover max-h-48"
+            {/* Live camera view */}
+            {cameraActive && (
+              <div className="relative rounded-md overflow-hidden bg-black">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full max-h-64 object-cover"
                 />
-                <Button
-                  className="w-full"
-                  onClick={handlePhotoRecognize}
-                  disabled={photoLoading}
-                >
-                  {photoLoading ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Распознаю...</>
-                  ) : (
-                    'Распознать'
-                  )}
-                </Button>
+                <div className="absolute bottom-3 inset-x-0 flex justify-center gap-3">
+                  <Button size="sm" variant="secondary" onClick={stopCamera}>
+                    <X className="h-4 w-4 mr-1" />Отмена
+                  </Button>
+                  <Button size="sm" onClick={capturePhoto}>
+                    📸 Снять
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!cameraActive && (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  Сфотографируйте блюдо — AI оценит состав. Вес и КБЖУ можно скорректировать.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" className="gap-2" onClick={openCamera}>
+                    <Camera className="h-4 w-4" />Камера
+                  </Button>
+                  <Button variant="outline" className="gap-2" onClick={() => galleryInputRef.current?.click()}>
+                    🖼️ Галерея
+                  </Button>
+                </div>
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleGallerySelect}
+                />
               </>
             )}
 
@@ -453,6 +463,17 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
               <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {photoError}
               </p>
+            )}
+
+            {photoPreview && !cameraActive && (
+              <>
+                <img src={photoPreview} alt="Превью" className="w-full rounded-md border object-cover max-h-48" />
+                <Button className="w-full" onClick={handlePhotoRecognize} disabled={photoLoading}>
+                  {photoLoading
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Распознаю...</>
+                    : 'Распознать'}
+                </Button>
+              </>
             )}
 
             {photoResults.length > 0 && renderResults(
@@ -477,24 +498,16 @@ export function AddEntryDialog({ open, onOpenChange, foods, onAdd }: Props) {
               value={aiText}
               onChange={(e) => setAiText(e.target.value)}
             />
-            <Button
-              className="w-full"
-              onClick={handleAiParse}
-              disabled={aiLoading || !aiText.trim()}
-            >
-              {aiLoading ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Считаю...</>
-              ) : (
-                'Распознать'
-              )}
+            <Button className="w-full" onClick={handleAiParse} disabled={aiLoading || !aiText.trim()}>
+              {aiLoading
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Считаю...</>
+                : 'Распознать'}
             </Button>
-
             {aiError && (
               <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {aiError}
               </p>
             )}
-
             {aiResults.length > 0 && renderResults(
               aiResults,
               (idx, field, value) => setAiResults((prev) => patchEntry(prev, idx, field, value)),

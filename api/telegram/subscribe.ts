@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getRedis, SUBSCRIBERS_SET, subscriberKey } from '../_lib/redis.js';
-import type { ReminderKey, ReminderSetting, Subscriber } from '../_lib/types.js';
+import type { ReminderKey, ReminderSetting, Subscriber, WaterReminderSettings } from '../_lib/types.js';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -15,16 +15,28 @@ function isValidReminders(input: unknown): input is Partial<Record<ReminderKey, 
   });
 }
 
+function isValidWaterReminder(input: unknown): input is WaterReminderSettings | undefined {
+  if (input === undefined || input === null) return true;
+  if (typeof input !== 'object') return false;
+  const w = input as Record<string, unknown>;
+  if (typeof w.enabled !== 'boolean') return false;
+  if (typeof w.wakeStart !== 'string' || !TIME_RE.test(w.wakeStart)) return false;
+  if (typeof w.wakeEnd !== 'string' || !TIME_RE.test(w.wakeEnd)) return false;
+  if (typeof w.maxPerDay !== 'number' || w.maxPerDay < 1 || w.maxPerDay > 10) return false;
+  return true;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
-  const { chatId, timezone, reminders } = (req.body ?? {}) as {
+  const { chatId, timezone, reminders, waterReminder } = (req.body ?? {}) as {
     chatId?: unknown;
     timezone?: unknown;
     reminders?: unknown;
+    waterReminder?: unknown;
   };
 
   if (typeof chatId !== 'number' || !Number.isFinite(chatId)) {
@@ -39,10 +51,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'invalid reminders' });
     return;
   }
+  if (!isValidWaterReminder(waterReminder)) {
+    res.status(400).json({ error: 'invalid waterReminder' });
+    return;
+  }
 
-  const hasAnyEnabled = Object.values(reminders).some((r) => r?.enabled);
+  const mealRemindersEnabled = Object.values(reminders).some((r) => r?.enabled);
+  const waterEnabled = (waterReminder as WaterReminderSettings | undefined)?.enabled ?? false;
 
-  if (!hasAnyEnabled) {
+  if (!mealRemindersEnabled && !waterEnabled) {
     await getRedis().srem(SUBSCRIBERS_SET, chatId);
     await getRedis().del(subscriberKey(chatId));
     res.status(200).json({ subscribed: false });
@@ -56,6 +73,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     timezone,
     reminders,
     lastSent: existing?.lastSent ?? {},
+    waterReminder: waterReminder as WaterReminderSettings | undefined,
+    waterRemindersSent: existing?.waterRemindersSent ?? {},
   };
 
   await getRedis().set(subscriberKey(chatId), subscriber);

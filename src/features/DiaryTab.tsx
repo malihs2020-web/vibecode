@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { Bell, ChevronDown, ChevronLeft, ChevronRight, Droplets, Minus, Plus, Scale, Settings2, UtensilsCrossed, X } from 'lucide-react';
+import { Bell, ChevronDown, ChevronLeft, ChevronRight, Droplets, Minus, Plus, Scale, Settings2, Sparkles, UtensilsCrossed, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,8 +8,9 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { formatLongDate, shiftDay, todayKey } from '@/lib/date';
 import { isTelegram } from '@/hooks/useTelegram';
-import { syncTelegramReminders } from '@/lib/telegramApi';
-import type { AppSettings, Diary, DiaryDay, Entry, Food, MacroGoals, MealType, ReminderKey, ReminderSetting, WeightEntry } from '@/lib/types';
+import { syncTelegramReminders, syncWaterCount } from '@/lib/telegramApi';
+import { calcWaterGoal } from '@/lib/calc';
+import type { AppSettings, Diary, DiaryDay, Entry, Food, MacroGoals, MealType, ReminderKey, ReminderSetting, WeightEntry, WaterReminderSettings } from '@/lib/types';
 import { AddEntryDialog } from './AddEntryDialog';
 
 const ALL_MEALS: { id: MealType; title: string }[] = [
@@ -34,6 +35,8 @@ const MEAL_LABELS: Record<MealType, string> = {
 
 const GLASS_OPTIONS = [100, 150, 200, 250, 300, 330, 500];
 const WATER_GOAL_OPTIONS = [4, 5, 6, 7, 8, 9, 10, 12];
+const WATER_MAX_PER_DAY_OPTIONS = [2, 3, 4, 5];
+const DEFAULT_WATER_REMINDER: WaterReminderSettings = { enabled: false, wakeStart: '08:00', wakeEnd: '22:00', maxPerDay: 3 };
 const DEFAULT_REMINDER_TIME = '09:00';
 
 const EMPTY_DAY: DiaryDay = {
@@ -74,6 +77,7 @@ export function DiaryTab({
   const [showSettings, setShowSettings] = useState(false);
   const [collapsedArr, setCollapsedArr] = useLocalStorage<MealType[]>('collapsedMeals', []);
   const collapsedMeals = new Set(collapsedArr);
+  const [profile] = useLocalStorage<{ weight?: string; activity?: string }>('userProfile', {});
 
   function toggleCollapse(id: MealType) {
     setCollapsedArr((prev) =>
@@ -83,7 +87,14 @@ export function DiaryTab({
 
   const todayWeight = weightLog.find((e) => e.date === date)?.weight ?? null;
   const activeMeals = ALL_MEALS.filter((m) => settings.activeMeals.includes(m.id));
-  const { glassML, waterGoal } = settings;
+  const { glassML } = settings;
+
+  // Авторасчёт нормы воды по профилю; фолбэк 8 стаканов
+  const autoWaterGoal = profile.weight && profile.activity
+    ? calcWaterGoal(+profile.weight, +profile.activity)
+    : 8;
+  const waterGoal = settings.waterGoalOverride ?? autoWaterGoal;
+  const waterReminder = settings.waterReminder ?? DEFAULT_WATER_REMINDER;
 
   const day = diary[date] ?? EMPTY_DAY;
   const water = day.water ?? 0;
@@ -128,11 +139,27 @@ export function DiaryTab({
     if (w > 0) { onAddWeight(date, w); setWeightInput(''); }
   }
 
+  function handleChangeWater(d: string, delta: number) {
+    onChangeWater(d, delta);
+    if (isTelegram() && waterReminder.enabled && d === todayKey()) {
+      const newCount = Math.max(0, water + delta);
+      syncWaterCount(newCount, waterGoal).catch(() => {});
+    }
+  }
+
   function updateReminder(key: ReminderKey, setting: ReminderSetting) {
     onSettingsChange((prev) => {
       const next = { ...prev, telegramReminders: { ...prev.telegramReminders, [key]: setting } };
-      syncTelegramReminders(next.telegramReminders);
+      syncTelegramReminders(next.telegramReminders, next.waterReminder).catch(() => {});
       return next;
+    });
+  }
+
+  function updateWaterReminder(next: WaterReminderSettings) {
+    onSettingsChange((prev) => {
+      const updated = { ...prev, waterReminder: next };
+      syncTelegramReminders(updated.telegramReminders, next).catch(() => {});
+      return updated;
     });
   }
 
@@ -194,13 +221,22 @@ export function DiaryTab({
             ))}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="icon" onClick={() => onChangeWater(date, -1)}>
+            <Button variant="outline" size="icon" onClick={() => handleChangeWater(date, -1)}>
               <Minus />
             </Button>
-            <Button variant="outline" className="flex-1 text-primary" onClick={() => onChangeWater(date, 1)}>
+            <Button variant="outline" className="flex-1 text-primary" onClick={() => handleChangeWater(date, 1)}>
               <Plus /> стакан ({glassML} мл)
             </Button>
           </div>
+          {profile.weight && profile.activity && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Sparkles className="h-3 w-3 shrink-0" />
+              <span>
+                Расчёт по профилю: {autoWaterGoal} стак. (≈{autoWaterGoal * glassML} мл).
+                Это оценка — потребность выше при жаре, нагрузке и в период ГВ.
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -337,14 +373,29 @@ export function DiaryTab({
               <div className="space-y-2">
                 <div className="text-sm font-medium">Цель по воде (стаканов в день)</div>
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onSettingsChange((p) => {
+                      const { waterGoalOverride: _, ...rest } = p;
+                      return rest as AppSettings;
+                    })}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs transition-colors',
+                      settings.waterGoalOverride === undefined
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border hover:bg-accent',
+                    )}
+                  >
+                    Авто ({autoWaterGoal})
+                  </button>
                   {WATER_GOAL_OPTIONS.map((n) => (
                     <button
                       key={n}
                       type="button"
-                      onClick={() => onSettingsChange((p) => ({ ...p, waterGoal: n }))}
+                      onClick={() => onSettingsChange((p) => ({ ...p, waterGoalOverride: n }))}
                       className={cn(
                         'rounded-full border px-3 py-1 text-xs transition-colors',
-                        waterGoal === n
+                        settings.waterGoalOverride === n
                           ? 'border-primary bg-primary text-primary-foreground'
                           : 'border-border hover:bg-accent',
                       )}
@@ -354,6 +405,60 @@ export function DiaryTab({
                   ))}
                 </div>
               </div>
+
+              {/* Умные напоминания о воде */}
+              {isTelegram() && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-sm font-medium">
+                      <Droplets className="h-4 w-4" /> Умные напоминания о воде
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={waterReminder.enabled}
+                        onChange={(e) => updateWaterReminder({ ...waterReminder, enabled: e.target.checked })}
+                        className="rounded"
+                      />
+                      Вкл
+                    </label>
+                  </div>
+                  {waterReminder.enabled && (
+                    <div className="space-y-2 rounded-lg bg-muted/50 p-3">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="w-28 shrink-0 text-muted-foreground">Окно активности</span>
+                        <input type="time" value={waterReminder.wakeStart}
+                          onChange={(e) => updateWaterReminder({ ...waterReminder, wakeStart: e.target.value })}
+                          className="h-8 rounded-md border bg-background px-2 text-xs" />
+                        <span className="text-muted-foreground">–</span>
+                        <input type="time" value={waterReminder.wakeEnd}
+                          onChange={(e) => updateWaterReminder({ ...waterReminder, wakeEnd: e.target.value })}
+                          className="h-8 rounded-md border bg-background px-2 text-xs" />
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="w-28 shrink-0 text-muted-foreground">Макс. в день</span>
+                        <div className="flex gap-1.5">
+                          {WATER_MAX_PER_DAY_OPTIONS.map((n) => (
+                            <button key={n} type="button"
+                              onClick={() => updateWaterReminder({ ...waterReminder, maxPerDay: n })}
+                              className={cn(
+                                'rounded-full border px-2.5 py-0.5 text-xs transition-colors',
+                                waterReminder.maxPerDay === n
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-border hover:bg-accent',
+                              )}>
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Бот пишет только если ты отстаёшь от темпа — не чаще {waterReminder.maxPerDay} раз в день.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Уведомления в Telegram */}
               {isTelegram() && (

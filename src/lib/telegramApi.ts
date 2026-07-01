@@ -1,7 +1,10 @@
 import { getChatId } from '@/hooks/useTelegram';
-import type { AppSettings } from './types';
+import type { AppSettings, WaterReminderSettings } from './types';
 
-export async function syncTelegramReminders(reminders: AppSettings['telegramReminders']): Promise<void> {
+export async function syncTelegramReminders(
+  reminders: AppSettings['telegramReminders'],
+  waterReminder?: WaterReminderSettings,
+): Promise<void> {
   const chatId = getChatId();
   if (!chatId) return;
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -9,9 +12,23 @@ export async function syncTelegramReminders(reminders: AppSettings['telegramRemi
     await fetch('/api/telegram/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chatId, timezone, reminders: reminders ?? {} }),
+      body: JSON.stringify({ chatId, timezone, reminders: reminders ?? {}, waterReminder }),
     });
   } catch {
-    // не критично для работы приложения — тихо игнорируем
+    // не критично — тихо игнорируем
+  }
+}
+
+export async function syncWaterCount(count: number, goal: number): Promise<void> {
+  const initData = window.Telegram?.WebApp?.initData;
+  if (!initData) return;
+  try {
+    await fetch('/api/water/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData, count, goal }),
+    });
+  } catch {
+    // не критично
   }
 }

@@ -141,3 +141,14 @@ export const GOAL_RATE_OPTIONS: { value: GoalRate; label: string; desc: string }
   { value: 'moderate', label: 'Умеренно', desc: '−500 ккал/день · ≈0.5 кг/нед' },
   { value: 'fast', label: 'Быстро', desc: '−750 ккал/день · ≈0.75 кг/нед' },
 ];
+
+// Рекомендуемое количество стаканов (250 мл) по весу и уровню активности.
+// 30–38 мл/кг — диапазон для сидячего образа и спортсменов.
+export function calcWaterGoal(weight: number, activityFactor: number): number {
+  const mlPerKg = activityFactor <= 1.2 ? 30
+    : activityFactor <= 1.375 ? 31
+    : activityFactor <= 1.55 ? 33
+    : activityFactor <= 1.725 ? 35
+    : 38;
+  return Math.max(4, Math.round((weight * mlPerKg) / 250));
+}

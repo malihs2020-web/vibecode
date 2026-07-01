@@ -39,11 +39,21 @@ CREATE TABLE IF NOT EXISTS sessions (
   last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Синхронизация счётчика воды (для умных напоминаний бота)
+CREATE TABLE IF NOT EXISTS water_sync (
+  tg_id TEXT NOT NULL,
+  date  DATE NOT NULL DEFAULT CURRENT_DATE,
+  count INT  NOT NULL DEFAULT 0,
+  goal  INT  NOT NULL DEFAULT 8,
+  PRIMARY KEY (tg_id, date)
+);
+
 -- RLS
-ALTER TABLE posts     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reports   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sessions  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE posts       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reactions   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reports     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sessions    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE water_sync  ENABLE ROW LEVEL SECURITY;
 
 -- Публичное чтение постов (только не скрытые)
 CREATE POLICY "posts_public_read"     ON posts     FOR SELECT USING (NOT is_hidden);

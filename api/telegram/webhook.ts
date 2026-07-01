@@ -18,14 +18,7 @@ async function getStats(): Promise<string> {
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const monthAgo = new Date(Date.now() - 30 * 86_400_000).toISOString();
 
-  const [
-    { count: totalPosts },
-    { count: weekPosts },
-    { count: ugcPosts },
-    { count: hiddenPosts },
-    { count: dau },
-    { count: mau },
-  ] = await Promise.all([
+  const results = await Promise.all([
     supabase.from('posts').select('*', { count: 'exact', head: true }).eq('is_hidden', false),
     supabase.from('posts').select('*', { count: 'exact', head: true }).eq('is_hidden', false).gte('created_at', weekAgo),
     supabase.from('posts').select('*', { count: 'exact', head: true }).eq('is_generated', false).eq('is_hidden', false),
@@ -34,14 +27,16 @@ async function getStats(): Promise<string> {
     supabase.from('sessions').select('*', { count: 'exact', head: true }).gte('last_seen_at', monthAgo),
   ]);
 
+  const [totalPosts, weekPosts, ugcPosts, hiddenPosts, dau, mau] = results.map((r) => r.count ?? 0);
+
   return `📊 <b>Статистика</b>
 
-📝 Постов: ${totalPosts ?? 0} всего / ${weekPosts ?? 0} за неделю
-👤 От пользователей: ${ugcPosts ?? 0}
-🚩 Скрыто жалобами: ${hiddenPosts ?? 0}
+📝 Постов: ${totalPosts} всего / ${weekPosts} за неделю
+👤 От пользователей: ${ugcPosts}
+🚩 Скрыто жалобами: ${hiddenPosts}
 
-👥 DAU: ${dau ?? 0}
-👥 MAU: ${mau ?? 0}`;
+👥 DAU: ${dau}
+👥 MAU: ${mau}`;
 }
 
 interface TgUpdate {
@@ -64,9 +59,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const fromId = String(message.from.id);
   const chatId = message.chat.id;
-  const text = message.text.split('@')[0].trim();
+  const cmd = message.text.split('@')[0].trim();
 
-  if (text === '/stats') {
+  if (cmd === '/stats') {
     if (fromId !== ADMIN_ID) {
       await sendMessage(chatId, '⛔ Нет доступа');
     } else {

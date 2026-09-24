@@ -29,6 +29,9 @@ function write(key: string, value: string) {
 }
 
 function getInitialTheme(): Theme {
+  // Если страницу встроили с заданной темой (атрибут data-theme) — берём её
+  const attr = document.documentElement.getAttribute('data-theme');
+  if (attr === 'light' || attr === 'dark') return attr;
   const stored = read('theme');
   if (stored === 'light' || stored === 'dark') return stored;
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
